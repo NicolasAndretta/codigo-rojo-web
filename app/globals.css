@@ -1,26 +1,85 @@
 @import "tailwindcss";
 
+/* Siempre dark — no respetar prefers-color-scheme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --red: #dc2626;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bebas);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Glow rojo sutil de fondo, fijo, detrás de todo el contenido */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 40% at 50% -10%, rgba(220, 38, 38, 0.10), transparent 70%),
+    radial-gradient(40% 30% at 100% 0%, rgba(220, 38, 38, 0.05), transparent 60%);
+}
+
+/* El contenido va por encima del glow */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Headings display: kerning urbano */
+.font-display {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+/* Scrollbar oscura */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--red);
+}
+
+/* Selección de texto en rojo */
+::selection {
+  background: var(--red);
+  color: #fff;
+}
+
+/* Animación de entrada para grillas */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.5s ease both;
 }
