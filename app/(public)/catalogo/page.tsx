@@ -137,7 +137,7 @@ export default async function CatalogoPage({
           <div className="grid gap-4 sm:grid-cols-2">
             {[
               { t: "Retiro en local", d: "Coordinás por WhatsApp y retirás sin costo." },
-              { t: "Envío a domicilio", d: "A todo el país. Coordinamos el envío con vos." },
+              { t: "Envío a domicilio", d: "Envíos dentro de CABA. Coordinamos el envío con vos." },
               { t: "Pago seguro", d: "Pagás con MercadoPago: tarjeta, débito o efectivo." },
               { t: "Atención directa", d: "Te escribimos por WhatsApp en cada compra." },
             ].map((item) => (

@@ -199,7 +199,7 @@ export default function CheckoutClient() {
                 >
                   <MapPin size={20} />
                   Envío a domicilio
-                  <span className="text-xs font-normal opacity-70">A coordinar</span>
+                  <span className="text-xs font-normal opacity-70">Dentro de CABA</span>
                 </button>
               </div>
             </div>

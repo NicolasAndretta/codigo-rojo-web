@@ -187,7 +187,7 @@ export default function ProductDetail({ product }: Props) {
             <div className="text-center">
               <Truck size={20} className="mx-auto mb-1.5 text-neutral-400" />
               <p className="text-[11px] leading-tight text-neutral-500">
-                Envío a todo el país
+                Envíos dentro de CABA
               </p>
             </div>
             <div className="text-center">
