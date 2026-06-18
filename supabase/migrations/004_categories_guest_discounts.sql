@@ -171,6 +171,7 @@ create unique index if not exists discounts_unique_active_category
 create unique index if not exists discounts_unique_active_coupon
   on public.discounts(lower(code)) where scope = 'coupon' and is_active;
 
+drop trigger if exists set_updated_at_discounts on public.discounts;
 create trigger set_updated_at_discounts
   before update on public.discounts
   for each row execute procedure public.set_updated_at();
