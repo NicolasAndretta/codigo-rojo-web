@@ -209,6 +209,12 @@ export async function POST(req: NextRequest) {
         }));
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // MP rechaza `auto_return` si back_urls.success no es una URL pública
+  // (con http/localhost devuelve 400 invalid_auto_return). En desarrollo
+  // local lo omitimos para poder probar el flujo de pago; en producción
+  // (dominio https público) se activa el retorno automático tras aprobar.
+  const isPublicUrl =
+    /^https:\/\//.test(siteUrl) && !/localhost|127\.0\.0\.1/.test(siteUrl);
   try {
     const preference = await getPreferenceClient().create({
       body: {
@@ -219,7 +225,7 @@ export async function POST(req: NextRequest) {
           failure: `${siteUrl}/checkout/failure`,
           pending: `${siteUrl}/checkout/pending`,
         },
-        auto_return: "approved",
+        ...(isPublicUrl ? { auto_return: "approved" } : {}),
         notification_url: `${siteUrl}/api/webhooks/mp`,
       },
     });
@@ -233,7 +239,10 @@ export async function POST(req: NextRequest) {
 
     const initPoint = preference.init_point ?? preference.sandbox_init_point;
     return NextResponse.json({ order_id: order.id, mp_init_point: initPoint });
-  } catch {
+  } catch (err) {
+    // No tragamos el error: queda en logs del server para diagnosticar
+    // (credenciales, body inválido, MP caído, etc.).
+    console.error("Error creando preferencia de MercadoPago:", err);
     return NextResponse.json(
       { error: "No se pudo iniciar el pago. Intentá de nuevo." },
       { status: 502 }
