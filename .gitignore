@@ -44,3 +44,6 @@ skills-lock.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# artefactos de pruebas E2E (screenshots locales)
+_e2e_shots/
