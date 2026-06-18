@@ -10,6 +10,7 @@ import {
   removeProductImage,
   toggleProductActive,
 } from "@/lib/admin/actions";
+import CategorySelect from "@/components/admin/CategorySelect";
 import type { Category, Product, ProductVariant, ProductSize } from "@/lib/types/database";
 
 export const metadata = { title: "Editar producto | Admin" };
@@ -31,7 +32,7 @@ export default async function EditarProductoPage({
       .select("*, variants:product_variants(*)")
       .eq("id", productId)
       .single(),
-    supabase.from("categories").select("*").order("name"),
+    supabase.from("categories").select("*").order("display_order"),
   ]);
 
   if (!productData) notFound();
@@ -41,6 +42,7 @@ export default async function EditarProductoPage({
   const variants = [...product.variants].sort(
     (a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size)
   );
+  const canPublish = !!product.images[0]; // requiere foto de la prenda (slot 0)
 
   return (
     <div className="max-w-3xl">
@@ -53,18 +55,27 @@ export default async function EditarProductoPage({
 
       <div className="mb-8 flex items-center justify-between gap-4">
         <h1 className="font-display text-4xl tracking-widest">{product.name.toUpperCase()}</h1>
-        <form action={toggleProductActive.bind(null, product.id, !product.is_active)}>
-          <button
-            type="submit"
-            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
-              product.is_active
-                ? "border-green-800 bg-green-950/40 text-green-300 hover:bg-green-950/70"
-                : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-            }`}
+        {!product.is_active && !canPublish ? (
+          <span
+            className="shrink-0 cursor-not-allowed rounded-full border border-neutral-800 bg-neutral-900 px-4 py-2 text-xs font-bold uppercase tracking-wider text-neutral-600"
+            title="Subí la foto de la prenda para poder publicar"
           >
-            {product.is_active ? "Activo — ocultar" : "Oculto — activar"}
-          </button>
-        </form>
+            Subí una foto para activar
+          </span>
+        ) : (
+          <form action={toggleProductActive.bind(null, product.id, !product.is_active)}>
+            <button
+              type="submit"
+              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+                product.is_active
+                  ? "border-green-800 bg-green-950/40 text-green-300 hover:bg-green-950/70"
+                  : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+              }`}
+            >
+              {product.is_active ? "Activo — ocultar" : "Oculto — activar"}
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="flex flex-col gap-8">
@@ -115,18 +126,7 @@ export default async function EditarProductoPage({
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
                   Categoría
                 </label>
-                <select
-                  name="category_id"
-                  defaultValue={product.category_id ?? ""}
-                  className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
-                >
-                  <option value="">Sin categoría</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <CategorySelect categories={categories} defaultValue={product.category_id} />
               </div>
             </div>
             <button
@@ -171,49 +171,100 @@ export default async function EditarProductoPage({
 
         {/* Fotos */}
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-widest text-neutral-400">
             Fotos
           </h2>
+          <p className="mb-5 text-xs text-neutral-500">
+            La foto de la prenda es obligatoria para publicar. La foto con modelo es opcional.
+          </p>
 
-          {product.images.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-3">
-              {product.images.map((url) => (
-                <div key={url} className="relative h-28 w-24 overflow-hidden rounded border border-neutral-700">
-                  <Image src={url} alt={product.name} fill className="object-cover" sizes="96px" />
-                  <form
-                    action={removeProductImage.bind(null, product.id, url)}
-                    className="absolute right-1 top-1"
-                  >
-                    <button
-                      type="submit"
-                      className="flex h-6 w-6 items-center justify-center rounded bg-neutral-950/80 text-red-400 hover:bg-red-950 hover:text-red-300 transition-colors"
-                      aria-label="Eliminar foto"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </form>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <form action={uploadProductImage.bind(null, product.id)} className="flex items-center gap-3">
-            <input
-              name="image"
-              type="file"
-              accept="image/*"
-              required
-              className="block w-full text-sm text-neutral-400 file:mr-3 file:rounded file:border-0 file:bg-neutral-800 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-neutral-200 hover:file:bg-neutral-700"
+          <div className="grid grid-cols-2 gap-4">
+            <PhotoSlot
+              productId={product.id}
+              slot={0}
+              url={product.images[0]}
+              title="Foto de la prenda"
+              badge="Obligatoria"
+              badgeClass="bg-red-600/15 text-red-300 border-red-900"
             />
-            <button
-              type="submit"
-              className="flex shrink-0 items-center gap-2 rounded-lg border border-neutral-700 px-4 py-2 text-sm font-semibold text-neutral-200 hover:border-neutral-500 transition-colors"
-            >
-              <Upload size={16} /> Subir
-            </button>
-          </form>
+            <PhotoSlot
+              productId={product.id}
+              slot={1}
+              url={product.images[1]}
+              title="Foto con modelo"
+              badge="Opcional"
+              badgeClass="bg-neutral-800 text-neutral-400 border-neutral-700"
+            />
+          </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function PhotoSlot({
+  productId,
+  slot,
+  url,
+  title,
+  badge,
+  badgeClass,
+}: {
+  productId: number;
+  slot: number;
+  url?: string;
+  title: string;
+  badge: string;
+  badgeClass: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-neutral-300">{title}</span>
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}
+        >
+          {badge}
+        </span>
+      </div>
+
+      {url ? (
+        <div className="group relative aspect-[3/4] overflow-hidden rounded-lg border border-neutral-700">
+          <Image src={url} alt={title} fill className="object-cover" sizes="200px" />
+          <form
+            action={removeProductImage.bind(null, productId, slot)}
+            className="absolute right-2 top-2"
+          >
+            <button
+              type="submit"
+              className="flex h-7 w-7 items-center justify-center rounded bg-neutral-950/80 text-red-400 transition-colors hover:bg-red-950 hover:text-red-300"
+              aria-label={`Eliminar ${title}`}
+            >
+              <Trash2 size={14} />
+            </button>
+          </form>
+        </div>
+      ) : (
+        <form
+          action={uploadProductImage.bind(null, productId, slot)}
+          className="flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-neutral-700 p-4 text-center"
+        >
+          <Upload size={22} className="text-neutral-500" />
+          <input
+            name="image"
+            type="file"
+            accept="image/*"
+            required
+            className="block w-full text-xs text-neutral-400 file:mr-2 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-neutral-200 hover:file:bg-neutral-700"
+          />
+          <button
+            type="submit"
+            className="w-full rounded-lg bg-red-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-red-700"
+          >
+            Subir foto
+          </button>
+        </form>
+      )}
     </div>
   );
 }

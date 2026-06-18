@@ -99,14 +99,27 @@ export async function setProductStock(id: number, formData: FormData) {
   revalidatePath("/catalogo");
 }
 
-export async function uploadProductImage(id: number, formData: FormData) {
+// Regla de negocio (Código Rojo): cada producto admite hasta 2 fotos.
+//   slot 0 = foto de la prenda sola  (OBLIGATORIA para publicar)
+//   slot 1 = foto con modelo puesta  (OPCIONAL)
+// Las fotos se manejan posicionalmente sobre products.images[].
+const MAX_PRODUCT_IMAGES = 2;
+
+function storagePathFromUrl(url: string): string | null {
+  const marker = "/product-images/";
+  const idx = url.indexOf(marker);
+  return idx === -1 ? null : url.slice(idx + marker.length);
+}
+
+export async function uploadProductImage(id: number, slot: number, formData: FormData) {
   const file = formData.get("image") as File | null;
   if (!file || file.size === 0) return;
+  if (slot < 0 || slot >= MAX_PRODUCT_IMAGES) return;
 
   const supabase = await createClient();
 
   const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-  const path = `${id}/${Date.now()}.${ext}`;
+  const path = `${id}/${Date.now()}-${slot}.${ext}`;
 
   const { error: upErr } = await supabase.storage
     .from("product-images")
@@ -124,14 +137,22 @@ export async function uploadProductImage(id: number, formData: FormData) {
     .eq("id", id)
     .single<{ images: string[] }>();
 
-  const images = [...(product?.images ?? []), pub.publicUrl];
+  const images = [...(product?.images ?? [])];
+  const previousUrl = images[slot];
+  images[slot] = pub.publicUrl;
   await supabase.from("products").update({ images }).eq("id", id);
+
+  // Si reemplazamos una foto, borramos la anterior del storage (best-effort)
+  if (previousUrl) {
+    const prevPath = storagePathFromUrl(previousUrl);
+    if (prevPath) await supabase.storage.from("product-images").remove([prevPath]);
+  }
 
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/catalogo");
 }
 
-export async function removeProductImage(id: number, url: string) {
+export async function removeProductImage(id: number, slot: number) {
   const supabase = await createClient();
 
   const { data: product } = await supabase
@@ -140,16 +161,15 @@ export async function removeProductImage(id: number, url: string) {
     .eq("id", id)
     .single<{ images: string[] }>();
 
-  const images = (product?.images ?? []).filter((u) => u !== url);
+  const images = [...(product?.images ?? [])];
+  const url = images[slot];
+  if (!url) return;
+
+  images.splice(slot, 1); // al quitar la prenda, la foto con modelo pasa a principal
   await supabase.from("products").update({ images }).eq("id", id);
 
-  // Borrar del storage (best-effort)
-  const marker = "/product-images/";
-  const idx = url.indexOf(marker);
-  if (idx !== -1) {
-    const storagePath = url.slice(idx + marker.length);
-    await supabase.storage.from("product-images").remove([storagePath]);
-  }
+  const path = storagePathFromUrl(url);
+  if (path) await supabase.storage.from("product-images").remove([path]);
 
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/catalogo");
@@ -157,10 +177,89 @@ export async function removeProductImage(id: number, url: string) {
 
 export async function toggleProductActive(id: number, next: boolean) {
   const supabase = await createClient();
+
+  // Guardia: no se puede publicar sin la foto de la prenda (slot 0).
+  if (next) {
+    const { data: product } = await supabase
+      .from("products")
+      .select("images")
+      .eq("id", id)
+      .single<{ images: string[] }>();
+    if (!product?.images?.[0]) return; // la UI ya lo impide; esto es defensa extra
+  }
+
   await supabase.from("products").update({ is_active: next }).eq("id", id);
 
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/admin/productos");
+  revalidatePath("/catalogo");
+}
+
+// ---------- Categorías ----------
+
+function slugify(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "") // sacar acentos (marcas combinantes)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+export async function createCategory(formData: FormData) {
+  const supabase = await createClient();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const parentRaw = formData.get("parent_id");
+  const parentId = parentRaw ? Number(parentRaw) : null;
+
+  if (!name) {
+    throw new Error("El nombre es obligatorio");
+  }
+
+  // Slug único: si choca, le agregamos un sufijo numérico.
+  const base = slugify(name) || "categoria";
+  let slug = base;
+  for (let i = 2; i < 50; i++) {
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!existing) break;
+    slug = `${base}-${i}`;
+  }
+
+  // display_order: al final dentro de su nivel (raíz o hijas de un padre)
+  const siblingsQuery = supabase
+    .from("categories")
+    .select("display_order")
+    .order("display_order", { ascending: false })
+    .limit(1);
+  const { data: siblings } =
+    parentId === null
+      ? await siblingsQuery.is("parent_id", null)
+      : await siblingsQuery.eq("parent_id", parentId);
+  const nextOrder = ((siblings?.[0]?.display_order as number | undefined) ?? 0) + 1;
+
+  await supabase.from("categories").insert({
+    name,
+    slug,
+    parent_id: parentId,
+    display_order: nextOrder,
+  });
+
+  revalidatePath("/admin/categorias");
+  revalidatePath("/catalogo");
+}
+
+export async function deleteCategory(id: number) {
+  const supabase = await createClient();
+  // ON DELETE CASCADE borra subcategorías; los productos quedan sin categoría.
+  await supabase.from("categories").delete().eq("id", id);
+
+  revalidatePath("/admin/categorias");
   revalidatePath("/catalogo");
 }
 

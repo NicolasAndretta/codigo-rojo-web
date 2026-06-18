@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Package, ClipboardList, Store } from "lucide-react";
+import { Package, ClipboardList, Store, FolderTree, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({
@@ -35,12 +35,24 @@ export default async function AdminLayout({
           >
             CÓDIGO ROJO · ADMIN
           </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium">
+          <nav className="flex items-center gap-5 text-sm font-medium">
             <Link
               href="/admin/productos"
               className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
             >
               <Package size={16} /> Productos
+            </Link>
+            <Link
+              href="/admin/categorias"
+              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
+            >
+              <FolderTree size={16} /> Categorías
+            </Link>
+            <Link
+              href="/admin/descuentos"
+              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
+            >
+              <Tag size={16} /> Descuentos
             </Link>
             <Link
               href="/admin/ordenes"

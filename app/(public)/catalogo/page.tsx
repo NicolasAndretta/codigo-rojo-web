@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import ProductCard from "@/components/catalog/ProductCard";
 import CategoryPills from "@/components/catalog/CategoryPills";
 import SizeFilter from "@/components/catalog/SizeFilter";
+import { fetchActiveDiscounts } from "@/lib/discounts/server";
+import { effectivePrice } from "@/lib/discounts/pricing";
 import type { Category, ProductWithVariants } from "@/lib/types/database";
 
 type SearchParams = {
@@ -25,7 +27,7 @@ export default async function CatalogoPage({
   const { data: rawCategories } = await supabase
     .from("categories")
     .select("*")
-    .order("name");
+    .order("display_order");
   const categories = (rawCategories ?? []) as Category[];
 
   // Obtener todos los productos activos con sus variantes y categoría
@@ -35,11 +37,15 @@ export default async function CatalogoPage({
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
-  // Filtro por categoría
+  // Filtro por categoría. Si es una categoría madre, incluye también
+  // los productos de sus subcategorías.
   if (category && category !== "todos") {
     const cat = categories.find((c) => c.slug === category);
     if (cat) {
-      query = query.eq("category_id", cat.id);
+      const childIds = categories
+        .filter((c) => c.parent_id === cat.id)
+        .map((c) => c.id);
+      query = query.in("category_id", [cat.id, ...childIds]);
     }
   }
 
@@ -52,6 +58,13 @@ export default async function CatalogoPage({
       p.variants.some((v) => v.size === size && v.stock > 0)
     );
   }
+
+  // Precios con descuento (producto/categoría) para cada producto
+  const discounts = await fetchActiveDiscounts(supabase);
+  const pricedProducts = products.map((p) => ({
+    product: p,
+    price: effectivePrice(p, discounts, p.id),
+  }));
 
   return (
     <div>
@@ -98,8 +111,8 @@ export default async function CatalogoPage({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {pricedProducts.map(({ product, price }) => (
+              <ProductCard key={product.id} product={product} price={price} />
             ))}
           </div>
         )}

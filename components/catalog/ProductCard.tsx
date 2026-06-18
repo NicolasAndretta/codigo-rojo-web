@@ -1,13 +1,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { ProductWithVariants } from "@/lib/types/database";
-import { formatPrice } from "@/lib/utils/format";
+import type { PriceResult } from "@/lib/discounts/pricing";
+import PriceTag, { DiscountBadge } from "./PriceTag";
 
 type Props = {
   product: ProductWithVariants;
+  price: PriceResult;
 };
 
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ product, price }: Props) {
   const inStockSizes = product.variants
     .filter((v) => v.stock > 0)
     .map((v) => v.size);
@@ -48,7 +50,14 @@ export default function ProductCard({ product }: Props) {
           </span>
         </div>
 
-        {/* Badges */}
+        {/* Badge de descuento (arriba izquierda) */}
+        {hasStock && price.hasDiscount && (
+          <span className="absolute left-3 top-3">
+            <DiscountBadge percentOff={price.percentOff} />
+          </span>
+        )}
+
+        {/* Estado de stock */}
         {!hasStock ? (
           <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/75 backdrop-blur-[1px]">
             <span className="rounded border border-neutral-600 px-3 py-1 text-xs font-bold tracking-widest uppercase text-neutral-300">
@@ -56,7 +65,7 @@ export default function ProductCard({ product }: Props) {
             </span>
           </div>
         ) : lowStock ? (
-          <span className="absolute left-3 top-3 rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+          <span className="absolute right-3 top-3 rounded-full bg-neutral-950/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-200 backdrop-blur-sm">
             Últimas unidades
           </span>
         ) : null}
@@ -82,9 +91,9 @@ export default function ProductCard({ product }: Props) {
           </div>
         )}
 
-        <p className="mt-auto pt-1 text-lg font-bold text-neutral-50">
-          {formatPrice(product.price)}
-        </p>
+        <div className="mt-auto pt-1">
+          <PriceTag price={price} />
+        </div>
       </div>
     </Link>
   );

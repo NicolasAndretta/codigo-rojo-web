@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import type { ProductWithVariants } from "@/lib/types/database";
+import { fetchActiveDiscounts } from "@/lib/discounts/server";
+import { effectivePrice } from "@/lib/discounts/pricing";
 import ProductDetail from "./ProductDetail";
 
 type Props = {
@@ -47,5 +49,8 @@ export default async function ProductoPage({ params }: Props) {
     ),
   };
 
-  return <ProductDetail product={sorted} />;
+  const discounts = await fetchActiveDiscounts(supabase);
+  const price = effectivePrice(sorted, discounts, sorted.id);
+
+  return <ProductDetail product={sorted} price={price} />;
 }

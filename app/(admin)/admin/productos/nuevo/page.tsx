@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createProduct } from "@/lib/admin/actions";
+import CategorySelect from "@/components/admin/CategorySelect";
 import type { Category } from "@/lib/types/database";
 
 export const metadata = { title: "Nuevo producto | Admin" };
@@ -11,7 +12,7 @@ export default async function NuevoProductoPage() {
   const { data: rawCategories } = await supabase
     .from("categories")
     .select("*")
-    .order("name");
+    .order("display_order");
   const categories = (rawCategories ?? []) as Category[];
 
   return (
@@ -67,17 +68,7 @@ export default async function NuevoProductoPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
               Categoría
             </label>
-            <select
-              name="category_id"
-              className="w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
-            >
-              <option value="">Sin categoría</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <CategorySelect categories={categories} />
           </div>
         </div>
 

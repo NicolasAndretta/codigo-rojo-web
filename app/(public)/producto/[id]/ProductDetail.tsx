@@ -5,14 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag, ArrowLeft, MessageCircle, Truck, Store, ShieldCheck } from "lucide-react";
 import type { ProductWithVariants, ProductVariant } from "@/lib/types/database";
-import { formatPrice, formatWhatsAppUrl } from "@/lib/utils/format";
+import type { PriceResult } from "@/lib/discounts/pricing";
+import { formatWhatsAppUrl } from "@/lib/utils/format";
 import { useCart } from "@/lib/hooks/useCart";
+import PriceTag, { DiscountBadge } from "@/components/catalog/PriceTag";
 
 type Props = {
   product: ProductWithVariants;
+  price: PriceResult;
 };
 
-export default function ProductDetail({ product }: Props) {
+export default function ProductDetail({ product, price }: Props) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
@@ -29,7 +32,7 @@ export default function ProductDetail({ product }: Props) {
       variantId: selectedVariant.id,
       name: product.name,
       size: selectedVariant.size,
-      price: product.price,
+      price: price.final, // precio con descuento aplicado
       image: product.images[0] ?? null,
     });
     setAdded(true);
@@ -104,9 +107,10 @@ export default function ProductDetail({ product }: Props) {
             {product.name.toUpperCase()}
           </h1>
 
-          <p className="text-2xl font-bold text-red-500">
-            {formatPrice(product.price)}
-          </p>
+          <div className="flex items-center gap-3">
+            <PriceTag price={price} size="lg" />
+            {price.hasDiscount && <DiscountBadge percentOff={price.percentOff} />}
+          </div>
 
           {product.description && (
             <p className="text-sm leading-relaxed text-neutral-400">
