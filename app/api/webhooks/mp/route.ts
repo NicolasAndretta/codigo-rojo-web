@@ -44,8 +44,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "rpc failed" }, { status: 500 });
     }
 
-    // changed === true sólo la primera vez (idempotencia) → emails una sola vez
+    // changed === true sólo la primera vez (idempotencia) → emails + cupón una sola vez
     if (changed) {
+      // Redimir cupón si la orden usó uno
+      const { data: order } = await supabase
+        .from("orders")
+        .select("coupon_discount_id")
+        .eq("id", orderId)
+        .single<{ coupon_discount_id: number | null }>();
+
+      if (order?.coupon_discount_id) {
+        await supabase.rpc("redeem_coupon", { p_discount_id: order.coupon_discount_id });
+      }
+
       await sendOrderEmails(orderId);
     }
 

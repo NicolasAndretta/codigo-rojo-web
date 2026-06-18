@@ -2,54 +2,62 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { getPreferenceClient } from "@/lib/mercadopago/client";
+import { fetchActiveDiscounts, validateCoupon, couponAmountOff } from "@/lib/discounts/server";
+import { effectivePrice } from "@/lib/discounts/pricing";
 import type { CartItem } from "@/lib/hooks/useCart";
-import type { Database } from "@/lib/types/database";
+import type { Database, DeliveryPoint } from "@/lib/types/database";
 
 type OrderBody = {
-  items: CartItem[];
-  delivery_type: "pickup" | "delivery";
-  shipping_address: {
-    full_name: string;
+  items: Pick<CartItem, "productId" | "variantId" | "quantity">[];
+  delivery_point: DeliveryPoint;
+  customer: {
+    name: string;
     phone: string;
-    street: string;
-    number: string;
-    floor_apt?: string;
-    localidad: string;
-    provincia: string;
-    codigo_postal: string;
-    notes?: string;
-  } | null;
+    email?: string;
+  };
+  delivery_address?: string;
+  delivery_notes?: string;
+  coupon_code?: string;
 };
 
 type VariantRow = { id: number; stock: number; size: string; product_id: number };
+type ProductRow = { id: number; name: string; price: number; category_id: number | null };
+
+const DELIVERY_POINTS: DeliveryPoint[] = ["haedo", "ramos_mejia", "domicilio"];
 
 export async function POST(req: NextRequest) {
+  // Cliente del request: respeta RLS. La compra es anónima (user_id null);
+  // si hubiera sesión (admin probando), se asocia igual.
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
   const body = (await req.json()) as OrderBody;
-  const { items, delivery_type, shipping_address } = body;
+  const { items, delivery_point, customer, delivery_address, delivery_notes, coupon_code } = body;
 
+  // --- Validaciones de entrada ---
   if (!items?.length) {
-    return NextResponse.json({ error: "Carrito vacío" }, { status: 400 });
+    return NextResponse.json({ error: "El carrito está vacío" }, { status: 400 });
   }
-
-  if (delivery_type === "delivery" && !shipping_address) {
+  if (!DELIVERY_POINTS.includes(delivery_point)) {
+    return NextResponse.json({ error: "Punto de entrega inválido" }, { status: 400 });
+  }
+  if (!customer?.name?.trim() || !customer?.phone?.trim()) {
     return NextResponse.json(
-      { error: "Dirección de envío requerida" },
+      { error: "Necesitamos tu nombre y teléfono para coordinar la entrega" },
+      { status: 400 }
+    );
+  }
+  if (delivery_point === "domicilio" && !delivery_address?.trim()) {
+    return NextResponse.json(
+      { error: "Indicá tu dirección para el envío a domicilio" },
       { status: 400 }
     );
   }
 
-  // Verificar stock actualizado
-  const variantIds = items.map((i) => i.variantId);
+  // --- Traer datos reales de variantes y productos (NO confiar en el cliente) ---
+  const variantIds = [...new Set(items.map((i) => i.variantId))];
   const { data: variants, error: variantsError } = await supabase
     .from("product_variants")
     .select("id, stock, size, product_id")
@@ -60,99 +68,154 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error verificando stock" }, { status: 500 });
   }
 
+  const productIds = [...new Set(variants.map((v) => v.product_id))];
+  const { data: products, error: productsError } = await supabase
+    .from("products")
+    .select("id, name, price, category_id")
+    .in("id", productIds)
+    .eq("is_active", true)
+    .returns<ProductRow[]>();
+
+  if (productsError || !products) {
+    return NextResponse.json({ error: "Error verificando productos" }, { status: 500 });
+  }
+
+  // Descuentos vigentes de producto/categoría (RLS ya filtra por validez)
+  const discounts = await fetchActiveDiscounts(supabase);
+
+  // --- Recalcular precios autoritativos + validar stock ---
+  type PricedItem = {
+    productId: number;
+    variantId: number;
+    name: string;
+    size: string;
+    quantity: number;
+    unitPrice: number;
+  };
+
+  const priced: PricedItem[] = [];
+  let subtotal = 0;
+
   for (const item of items) {
     const variant = variants.find((v) => v.id === item.variantId);
-    if (!variant || variant.stock < item.quantity) {
+    const product = variant && products.find((p) => p.id === variant.product_id);
+
+    if (!variant || !product) {
       return NextResponse.json(
-        { error: `Sin stock suficiente para "${item.name}" talle ${item.size}` },
+        { error: "Uno de los productos ya no está disponible" },
         { status: 409 }
       );
     }
+    const qty = Math.max(1, Math.floor(item.quantity));
+    if (variant.stock < qty) {
+      return NextResponse.json(
+        { error: `Sin stock suficiente para "${product.name}" talle ${variant.size}` },
+        { status: 409 }
+      );
+    }
+
+    const unitPrice = effectivePrice(product, discounts, product.id).final;
+    priced.push({
+      productId: product.id,
+      variantId: variant.id,
+      name: product.name,
+      size: variant.size,
+      quantity: qty,
+      unitPrice,
+    });
+    subtotal += unitPrice * qty;
   }
 
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  // --- Cupón (opcional) ---
+  let couponDiscountId: number | null = null;
+  let couponOff = 0;
+  if (coupon_code?.trim()) {
+    const coupon = await validateCoupon(supabase, coupon_code);
+    if (!coupon) {
+      return NextResponse.json(
+        { error: "El cupón no es válido o está vencido" },
+        { status: 422 }
+      );
+    }
+    couponOff = couponAmountOff(subtotal, coupon);
+    couponDiscountId = coupon.id;
+  }
 
-  // Crear orden — cast explícito para evitar inferencia incorrecta de supabase-js
+  const total = Math.max(0, subtotal - couponOff);
+
+  // --- Crear la orden (service client: escritura de sistema, evita
+  //     fricciones de RLS y permite asociar invitado con user_id null) ---
+  const service = createServiceClient();
   type OrderInsert = Database["public"]["Tables"]["orders"]["Insert"];
   const orderInsert: OrderInsert = {
-    user_id: user.id,
+    user_id: user?.id ?? null,
     status: "pending",
     total,
-    delivery_type,
+    delivery_point,
+    delivery_address: delivery_point === "domicilio" ? delivery_address?.trim() ?? null : null,
+    delivery_notes: delivery_notes?.trim() || null,
+    customer_name: customer.name.trim(),
+    customer_phone: customer.phone.trim(),
+    customer_email: customer.email?.trim() || null,
+    coupon_discount_id: couponDiscountId,
   };
 
-  const { data: order, error: orderError } = await supabase
+  const { data: order, error: orderError } = await service
     .from("orders")
     .insert(orderInsert)
     .select("id")
     .single<{ id: number }>();
 
   if (orderError || !order) {
-    return NextResponse.json({ error: "Error creando orden" }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo crear la orden" }, { status: 500 });
   }
 
-  // Insertar items
+  // Items con el precio autoritativo
   type OrderItemInsert = Database["public"]["Tables"]["order_items"]["Insert"];
-  const orderItems: OrderItemInsert[] = items.map((item) => ({
+  const orderItems: OrderItemInsert[] = priced.map((p) => ({
     order_id: order.id,
-    product_id: item.productId,
-    variant_id: item.variantId,
-    quantity: item.quantity,
-    unit_price: item.price,
+    product_id: p.productId,
+    variant_id: p.variantId,
+    quantity: p.quantity,
+    unit_price: p.unitPrice,
   }));
 
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(orderItems);
-
+  const { error: itemsError } = await service.from("order_items").insert(orderItems);
   if (itemsError) {
-    return NextResponse.json({ error: "Error guardando items" }, { status: 500 });
+    return NextResponse.json({ error: "Error guardando los productos del pedido" }, { status: 500 });
   }
 
-  // Insertar dirección si es delivery
-  if (delivery_type === "delivery" && shipping_address) {
-    type ShippingInsert = Database["public"]["Tables"]["shipping_addresses"]["Insert"];
-    const addrInsert: ShippingInsert = {
-      order_id: order.id,
-      full_name: shipping_address.full_name,
-      phone: shipping_address.phone,
-      street: shipping_address.street,
-      number: shipping_address.number,
-      floor_apt: shipping_address.floor_apt ?? null,
-      localidad: shipping_address.localidad,
-      provincia: shipping_address.provincia,
-      codigo_postal: shipping_address.codigo_postal,
-      notes: shipping_address.notes ?? null,
-    };
+  // --- Preference de MercadoPago (Checkout Pro: tarjeta, débito, efectivo) ---
+  // MP no admite ítems con monto negativo. Sin cupón mandamos el detalle
+  // por ítem; con cupón mandamos un único ítem consolidado por el total
+  // exacto (el desglose completo queda en la orden y en los emails).
+  const mpItems =
+    couponOff > 0
+      ? [
+          {
+            id: `order-${order.id}`,
+            title: `Pedido #${order.id} — Código Rojo (cupón aplicado)`,
+            quantity: 1,
+            unit_price: total,
+            currency_id: "ARS",
+          },
+        ]
+      : priced.map((p) => ({
+          id: String(p.variantId),
+          title: `${p.name} (Talle ${p.size})`,
+          quantity: p.quantity,
+          unit_price: p.unitPrice,
+          currency_id: "ARS",
+        }));
 
-    const { error: addrError } = await supabase
-      .from("shipping_addresses")
-      .insert(addrInsert);
-
-    if (addrError) {
-      return NextResponse.json(
-        { error: "Error guardando dirección" },
-        { status: 500 }
-      );
-    }
-  }
-
-  // Crear preference de MercadoPago (Checkout Pro)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
   try {
     const preference = await getPreferenceClient().create({
       body: {
-        items: items.map((item) => ({
-          id: String(item.variantId),
-          title: `${item.name} (Talle ${item.size})`,
-          quantity: item.quantity,
-          unit_price: item.price,
-          currency_id: "ARS",
-        })),
+        items: mpItems,
         external_reference: String(order.id),
         back_urls: {
-          success: `${siteUrl}/checkout/success`,
+          success: `${siteUrl}/checkout/success?order=${order.id}`,
           failure: `${siteUrl}/checkout/failure`,
           pending: `${siteUrl}/checkout/pending`,
         },
@@ -161,9 +224,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Guardar el id de preference (dato de sistema → service client)
     if (preference.id) {
-      const service = createServiceClient();
       await service
         .from("orders")
         .update({ mp_preference_id: preference.id })
@@ -173,7 +234,6 @@ export async function POST(req: NextRequest) {
     const initPoint = preference.init_point ?? preference.sandbox_init_point;
     return NextResponse.json({ order_id: order.id, mp_init_point: initPoint });
   } catch {
-    // Si MP falla, la orden queda 'pending'; el cliente ve el error inline
     return NextResponse.json(
       { error: "No se pudo iniciar el pago. Intentá de nuevo." },
       { status: 502 }

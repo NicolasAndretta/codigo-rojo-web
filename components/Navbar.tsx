@@ -37,16 +37,9 @@ export default function Navbar({ user }: Props) {
         {/* Acciones */}
         <div className="flex items-center gap-4">
           <CartButton />
-          {user ? (
-            <AccountMenu email={user.email} isAdmin={user.isAdmin} />
-          ) : (
-            <Link
-              href="/login"
-              className="text-sm font-semibold tracking-wider uppercase text-neutral-300 hover:text-neutral-50 transition-colors"
-            >
-              Ingresar
-            </Link>
-          )}
+          {/* El login es solo para administración: no se ofrece al comprador.
+              Si hay sesión admin activa, mostramos el acceso al panel. */}
+          {user && <AccountMenu email={user.email} isAdmin={user.isAdmin} />}
         </div>
       </div>
     </header>

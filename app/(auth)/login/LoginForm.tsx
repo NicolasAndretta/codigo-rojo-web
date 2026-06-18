@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { translateAuthError } from "@/lib/auth/errors";
@@ -33,16 +32,16 @@ export default function LoginForm() {
       return;
     }
 
-    const redirect = searchParams.get("redirect") ?? "/catalogo";
+    const redirect = searchParams.get("redirect") ?? "/admin";
     router.push(redirect);
     router.refresh();
   }
 
   return (
     <div>
-      <h1 className="mb-1 font-display text-4xl tracking-widest">INGRESAR</h1>
+      <h1 className="mb-1 font-display text-4xl tracking-widest">PANEL ADMIN</h1>
       <p className="mb-6 text-sm text-neutral-500">
-        Bienvenido de vuelta.
+        Acceso exclusivo para administración de la tienda.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -89,13 +88,6 @@ export default function LoginForm() {
           {loading ? "Ingresando..." : "Ingresar"}
         </button>
       </form>
-
-      <p className="mt-6 text-center text-sm text-neutral-500">
-        ¿No tenés cuenta?{" "}
-        <Link href="/registro" className="text-red-500 hover:text-red-400 font-semibold">
-          Registrate
-        </Link>
-      </p>
     </div>
   );
 }

@@ -9,7 +9,8 @@ import {
   ORDER_STATUS_CLASSES,
   ALL_ORDER_STATUSES,
 } from "@/lib/utils/orderStatus";
-import type { Order, ShippingAddress } from "@/lib/types/database";
+import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
+import type { Order } from "@/lib/types/database";
 
 export const metadata = { title: "Orden | Admin" };
 
@@ -38,25 +39,11 @@ export default async function OrdenDetallePage({
   if (!orderData) notFound();
   const order = orderData as Order;
 
-  const [{ data: rawItems }, { data: address }, { data: profile }] = await Promise.all([
-    supabase
-      .from("order_items")
-      .select("quantity, unit_price, product:products(name), variant:product_variants(size)")
-      .eq("order_id", orderId)
-      .returns<ItemRow[]>(),
-    supabase
-      .from("shipping_addresses")
-      .select("*")
-      .eq("order_id", orderId)
-      .maybeSingle<ShippingAddress>(),
-    order.user_id
-      ? supabase
-          .from("profiles")
-          .select("email, full_name")
-          .eq("id", order.user_id)
-          .single<{ email: string; full_name: string | null }>()
-      : Promise.resolve({ data: null }),
-  ]);
+  const { data: rawItems } = await supabase
+    .from("order_items")
+    .select("quantity, unit_price, product:products(name), variant:product_variants(size)")
+    .eq("order_id", orderId)
+    .returns<ItemRow[]>();
 
   const items = rawItems ?? [];
 
@@ -105,34 +92,47 @@ export default async function OrdenDetallePage({
           </div>
         </section>
 
-        {/* Entrega */}
+        {/* Cliente + entrega */}
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
-            Entrega — {order.delivery_type === "pickup" ? "Retiro en local" : "Envío a domicilio"}
+            Cliente y entrega
           </h2>
-          {profile && (
-            <p className="mb-3 text-sm text-neutral-400">
-              Cliente: <span className="text-neutral-200">{profile.full_name || "—"}</span> ·{" "}
-              {profile.email}
+
+          <div className="mb-4 text-sm text-neutral-300 leading-relaxed">
+            <span className="text-neutral-200">{order.customer_name || "Sin nombre"}</span>
+            {order.customer_phone && (
+              <>
+                {" · "}
+                <a
+                  href={`https://wa.me/${order.customer_phone.replace(/\D/g, "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-400 hover:text-green-300"
+                >
+                  {order.customer_phone}
+                </a>
+              </>
+            )}
+            {order.customer_email && (
+              <>
+                <br />
+                <span className="text-neutral-500">{order.customer_email}</span>
+              </>
+            )}
+          </div>
+
+          <p className="text-sm text-neutral-300">
+            <span className="text-neutral-500">Entrega: </span>
+            {order.delivery_point ? DELIVERY_POINT_LABELS[order.delivery_point] : "—"}
+          </p>
+          {order.delivery_address && (
+            <p className="mt-1 text-sm text-neutral-300">
+              <span className="text-neutral-500">Dirección: </span>
+              {order.delivery_address}
             </p>
           )}
-          {order.delivery_type === "delivery" && address ? (
-            <p className="text-sm text-neutral-300 leading-relaxed">
-              {address.full_name} · {address.phone}
-              <br />
-              {address.street} {address.number}
-              {address.floor_apt ? `, ${address.floor_apt}` : ""}
-              <br />
-              {address.localidad}, {address.provincia} (CP {address.codigo_postal})
-              {address.notes && (
-                <>
-                  <br />
-                  <span className="text-neutral-500">{address.notes}</span>
-                </>
-              )}
-            </p>
-          ) : (
-            <p className="text-sm text-neutral-500">Retiro coordinado por WhatsApp.</p>
+          {order.delivery_notes && (
+            <p className="mt-1 text-sm text-neutral-500">{order.delivery_notes}</p>
           )}
         </section>
 

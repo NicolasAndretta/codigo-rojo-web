@@ -1,112 +1,86 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Store, AlertCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Store, AlertCircle, Tag, Check, X } from "lucide-react";
 import { useCart } from "@/lib/hooks/useCart";
 import { formatPrice } from "@/lib/utils/format";
+import { DELIVERY_POINT_OPTIONS } from "@/lib/delivery";
+import { saveLastOrder } from "@/lib/checkout/lastOrder";
+import type { DeliveryPoint } from "@/lib/types/database";
 
-type DeliveryType = "pickup" | "delivery";
-
-type ShippingForm = {
-  full_name: string;
-  phone: string;
-  street: string;
-  number: string;
-  floor_apt: string;
-  localidad: string;
-  provincia: string;
-  codigo_postal: string;
-  notes: string;
+type ContactErrors = {
+  name?: string;
+  phone?: string;
+  address?: string;
 };
 
-const EMPTY_FORM: ShippingForm = {
-  full_name: "",
-  phone: "",
-  street: "",
-  number: "",
-  floor_apt: "",
-  localidad: "",
-  provincia: "",
-  codigo_postal: "",
-  notes: "",
-};
-
-const PROVINCIAS = [
-  "Buenos Aires",
-  "CABA",
-  "Catamarca",
-  "Chaco",
-  "Chubut",
-  "Córdoba",
-  "Corrientes",
-  "Entre Ríos",
-  "Formosa",
-  "Jujuy",
-  "La Pampa",
-  "La Rioja",
-  "Mendoza",
-  "Misiones",
-  "Neuquén",
-  "Río Negro",
-  "Salta",
-  "San Juan",
-  "San Luis",
-  "Santa Cruz",
-  "Santa Fe",
-  "Santiago del Estero",
-  "Tierra del Fuego",
-  "Tucumán",
-];
+type CouponState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "valid"; code: string; amountOff: number }
+  | { status: "invalid"; message: string };
 
 export default function CheckoutClient() {
   const router = useRouter();
   const { items, totalPrice, totalItems, clearCart } = useCart();
-  const [delivery, setDelivery] = useState<DeliveryType>("pickup");
-  const [form, setForm] = useState<ShippingForm>(EMPTY_FORM);
-  const [errors, setErrors] = useState<Partial<ShippingForm>>({});
+
+  const [point, setPoint] = useState<DeliveryPoint>("haedo");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [errors, setErrors] = useState<ContactErrors>({});
+
+  const [couponCode, setCouponCode] = useState("");
+  const [coupon, setCoupon] = useState<CouponState>({ status: "idle" });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Carrito vacío → volver al carrito (efecto, no durante el render)
+  // Carrito vacío → volver al carrito (en efecto, no durante el render)
   useEffect(() => {
-    if (items.length === 0) {
-      router.replace("/carrito");
-    }
+    if (items.length === 0) router.replace("/carrito");
   }, [items.length, router]);
 
-  if (items.length === 0) return null;
+  const couponOff = coupon.status === "valid" ? coupon.amountOff : 0;
+  const total = Math.max(0, totalPrice - couponOff);
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (errors[name as keyof ShippingForm]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+  const isDomicilio = point === "domicilio";
+
+  async function applyCoupon() {
+    const code = couponCode.trim();
+    if (!code) return;
+    setCoupon({ status: "loading" });
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal: totalPrice }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCoupon({ status: "valid", code, amountOff: data.amountOff });
+      } else {
+        setCoupon({ status: "invalid", message: data.error ?? "Cupón inválido" });
+      }
+    } catch {
+      setCoupon({ status: "invalid", message: "No se pudo validar el cupón" });
     }
   }
 
+  function clearCoupon() {
+    setCouponCode("");
+    setCoupon({ status: "idle" });
+  }
+
   function validate(): boolean {
-    if (delivery === "pickup") return true;
-
-    const required: (keyof ShippingForm)[] = [
-      "full_name",
-      "phone",
-      "street",
-      "number",
-      "localidad",
-      "provincia",
-      "codigo_postal",
-    ];
-
-    const next: Partial<ShippingForm> = {};
-    for (const field of required) {
-      if (!form[field].trim()) {
-        next[field] = "Campo requerido";
-      }
-    }
+    const next: ContactErrors = {};
+    if (!name.trim()) next.name = "Decinos tu nombre";
+    if (!phone.trim()) next.phone = "Necesitamos tu teléfono";
+    if (isDomicilio && !address.trim()) next.address = "Indicá tu dirección";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -122,24 +96,33 @@ export default function CheckoutClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items,
-          delivery_type: delivery,
-          shipping_address: delivery === "delivery" ? form : null,
+          items: items.map((i) => ({
+            productId: i.productId,
+            variantId: i.variantId,
+            quantity: i.quantity,
+          })),
+          delivery_point: point,
+          customer: { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined },
+          delivery_address: isDomicilio ? address.trim() : undefined,
+          delivery_notes: notes.trim() || undefined,
+          coupon_code: coupon.status === "valid" ? coupon.code : undefined,
         }),
       });
 
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo procesar el pedido");
 
-      if (!res.ok) {
-        if (res.status === 401) {
-          // Sesión expirada → mandar a login y volver al checkout
-          router.push("/login?redirect=/checkout");
-          return;
-        }
-        throw new Error(data.error ?? "Error al crear la orden");
-      }
+      // Snapshot para armar el WhatsApp en la pantalla de éxito (sobrevive
+      // el redirect a MercadoPago; el carrito se vacía allá).
+      saveLastOrder({
+        orderId: data.order_id,
+        customerName: name.trim(),
+        deliveryPoint: point,
+        deliveryAddress: isDomicilio ? address.trim() : null,
+        total,
+        items: items.map((i) => ({ name: i.name, size: i.size, quantity: i.quantity })),
+      });
 
-      // Redirige a MercadoPago. El carrito se vacía en /checkout/success.
       if (data.mp_init_point) {
         window.location.href = data.mp_init_point;
       } else {
@@ -152,6 +135,8 @@ export default function CheckoutClient() {
     }
   }
 
+  if (items.length === 0) return null;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <Link
@@ -162,191 +147,131 @@ export default function CheckoutClient() {
         Volver al carrito
       </Link>
 
-      <h1 className="mb-8 font-display text-5xl tracking-widest">CHECKOUT</h1>
+      <h1 className="mb-2 font-display text-5xl tracking-widest">CHECKOUT</h1>
+      <p className="mb-8 text-sm text-neutral-500">
+        Sin cuenta, sin vueltas. Completá tus datos y pagás con MercadoPago.
+      </p>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Formulario */}
-          <div className="lg:col-span-2 flex flex-col gap-6">
-
-            {/* Tipo de entrega */}
-            <div>
+          {/* Columna izquierda */}
+          <div className="lg:col-span-2 flex flex-col gap-8">
+            {/* Punto de entrega */}
+            <section>
               <p className="mb-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">
-                Tipo de entrega
+                ¿Dónde lo recibís?
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setDelivery("pickup")}
-                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-semibold transition-all ${
-                    delivery === "pickup"
-                      ? "border-red-600 bg-red-600/10 text-white"
-                      : "border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  <Store size={20} />
-                  Retiro en local
-                  <span className="text-xs font-normal opacity-70">Sin costo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDelivery("delivery")}
-                  className={`flex flex-col items-center gap-2 rounded-lg border p-4 text-sm font-semibold transition-all ${
-                    delivery === "delivery"
-                      ? "border-red-600 bg-red-600/10 text-white"
-                      : "border-neutral-700 text-neutral-400 hover:border-neutral-500"
-                  }`}
-                >
-                  <MapPin size={20} />
-                  Envío a domicilio
-                  <span className="text-xs font-normal opacity-70">Dentro de CABA</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Datos de retiro */}
-            {delivery === "pickup" && (
-              <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-400">
-                <p className="font-semibold text-neutral-200 mb-1">Punto de retiro</p>
-                <p>Te contactamos por WhatsApp para coordinar el retiro.</p>
-                <div className="mt-3">
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                    Tu WhatsApp / Nombre
-                  </label>
-                  <input
-                    type="text"
-                    name="full_name"
-                    value={form.full_name}
-                    onChange={handleChange}
-                    placeholder="Nombre y número de WhatsApp"
-                    className="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Formulario de dirección */}
-            {delivery === "delivery" && (
-              <div className="flex flex-col gap-4">
-                <p className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
-                  Dirección de entrega
-                </p>
-
-                <Field label="Nombre completo" error={errors.full_name}>
-                  <input
-                    name="full_name"
-                    value={form.full_name}
-                    onChange={handleChange}
-                    placeholder="Juan García"
-                    className={inputClass(!!errors.full_name)}
-                  />
-                </Field>
-
-                <Field label="Teléfono / WhatsApp" error={errors.phone}>
-                  <input
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    placeholder="11 2345-6789"
-                    className={inputClass(!!errors.phone)}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <Field label="Calle" error={errors.street}>
-                      <input
-                        name="street"
-                        value={form.street}
-                        onChange={handleChange}
-                        placeholder="Av. Corrientes"
-                        className={inputClass(!!errors.street)}
-                      />
-                    </Field>
-                  </div>
-                  <Field label="Número" error={errors.number}>
-                    <input
-                      name="number"
-                      value={form.number}
-                      onChange={handleChange}
-                      placeholder="1234"
-                      className={inputClass(!!errors.number)}
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Piso / Depto (opcional)">
-                  <input
-                    name="floor_apt"
-                    value={form.floor_apt}
-                    onChange={handleChange}
-                    placeholder="3° B"
-                    className={inputClass(false)}
-                  />
-                </Field>
-
-                <Field label="Localidad" error={errors.localidad}>
-                  <input
-                    name="localidad"
-                    value={form.localidad}
-                    onChange={handleChange}
-                    placeholder="San Justo"
-                    className={inputClass(!!errors.localidad)}
-                  />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Provincia" error={errors.provincia}>
-                    <select
-                      name="provincia"
-                      value={form.provincia}
-                      onChange={handleChange}
-                      className={inputClass(!!errors.provincia)}
+              <div className="flex flex-col gap-3">
+                {DELIVERY_POINT_OPTIONS.map((opt) => {
+                  const selected = point === opt.value;
+                  const Icon = opt.value === "domicilio" ? MapPin : Store;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setPoint(opt.value)}
+                      className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all ${
+                        selected
+                          ? "border-red-600 bg-red-600/10"
+                          : "border-neutral-800 hover:border-neutral-600"
+                      }`}
                     >
-                      <option value="">Seleccioná</option>
-                      {PROVINCIAS.map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
-                  </Field>
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          selected ? "bg-red-600 text-white" : "bg-neutral-800 text-neutral-400"
+                        }`}
+                      >
+                        <Icon size={18} />
+                      </span>
+                      <span className="flex-1">
+                        <span className="block text-sm font-semibold text-neutral-100">
+                          {opt.label}
+                        </span>
+                        <span className="block text-xs text-neutral-500">{opt.hint}</span>
+                      </span>
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                          selected ? "border-red-600 bg-red-600" : "border-neutral-600"
+                        }`}
+                      >
+                        {selected && <Check size={12} className="text-white" />}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-                  <Field label="Código postal" error={errors.codigo_postal}>
-                    <input
-                      name="codigo_postal"
-                      value={form.codigo_postal}
-                      onChange={handleChange}
-                      placeholder="1754"
-                      className={inputClass(!!errors.codigo_postal)}
-                    />
-                  </Field>
-                </div>
+            {/* Datos de contacto */}
+            <section className="flex flex-col gap-4">
+              <p className="text-xs font-semibold tracking-widest uppercase text-neutral-500">
+                Tus datos
+              </p>
 
-                <Field label="Aclaraciones (opcional)">
-                  <textarea
-                    name="notes"
-                    value={form.notes}
-                    onChange={handleChange}
-                    rows={2}
-                    placeholder="Entre calles, referencia, etc."
-                    className={`${inputClass(false)} resize-none`}
+              <Field label="Nombre" error={errors.name}>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Como te llamás"
+                  className={inputClass(!!errors.name)}
+                />
+              </Field>
+
+              <Field label="Teléfono / WhatsApp" error={errors.phone}>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="11 2843-6661"
+                  inputMode="tel"
+                  className={inputClass(!!errors.phone)}
+                />
+              </Field>
+
+              <Field label="Email (opcional)" hint="Para enviarte la confirmación">
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tucorreo@email.com"
+                  type="email"
+                  className={inputClass(false)}
+                />
+              </Field>
+
+              {isDomicilio && (
+                <Field label="Dirección de entrega" error={errors.address}>
+                  <input
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Calle, número, localidad"
+                    className={inputClass(!!errors.address)}
                   />
                 </Field>
-              </div>
-            )}
+              )}
+
+              <Field label="Aclaraciones (opcional)">
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Horario preferido, referencia, etc."
+                  className={`${inputClass(false)} resize-none`}
+                />
+              </Field>
+            </section>
           </div>
 
-          {/* Resumen de orden */}
+          {/* Resumen */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 rounded-lg border border-neutral-800 bg-neutral-900 p-6">
+            <div className="sticky top-24 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
               <h2 className="mb-4 font-display text-2xl tracking-wider">TU ORDEN</h2>
 
-              <div className="flex flex-col gap-2 text-sm mb-4">
+              <div className="mb-4 flex flex-col gap-2 text-sm">
                 {items.map((item) => (
                   <div
                     key={`${item.productId}-${item.variantId}`}
                     className="flex justify-between gap-2"
                   >
-                    <span className="text-neutral-400 truncate">
+                    <span className="truncate text-neutral-400">
                       {item.name}
                       <span className="ml-1 text-xs text-neutral-600">
                         {item.size} ×{item.quantity}
@@ -359,18 +284,66 @@ export default function CheckoutClient() {
                 ))}
               </div>
 
-              <div className="border-t border-neutral-700 pt-3 flex flex-col gap-2 text-sm">
+              {/* Cupón */}
+              <div className="mb-4 border-t border-neutral-800 pt-4">
+                {coupon.status === "valid" ? (
+                  <div className="flex items-center justify-between rounded-lg border border-green-900 bg-green-950/40 px-3 py-2 text-sm">
+                    <span className="flex items-center gap-2 text-green-300">
+                      <Tag size={14} /> {coupon.code.toUpperCase()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearCoupon}
+                      className="text-green-400 hover:text-green-200"
+                      aria-label="Quitar cupón"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        if (coupon.status === "invalid") setCoupon({ status: "idle" });
+                      }}
+                      placeholder="Cupón de descuento"
+                      className="min-w-0 flex-1 rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none uppercase"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      disabled={coupon.status === "loading" || !couponCode.trim()}
+                      className="shrink-0 rounded border border-neutral-600 px-3 py-2 text-xs font-bold uppercase tracking-wider text-neutral-200 hover:border-neutral-400 disabled:opacity-40"
+                    >
+                      {coupon.status === "loading" ? "..." : "Aplicar"}
+                    </button>
+                  </div>
+                )}
+                {coupon.status === "invalid" && (
+                  <p className="mt-1.5 text-xs text-red-500">{coupon.message}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-neutral-700 pt-3 text-sm">
                 <div className="flex justify-between text-neutral-400">
                   <span>Subtotal ({totalItems} items)</span>
                   <span>{formatPrice(totalPrice)}</span>
                 </div>
+                {couponOff > 0 && (
+                  <div className="flex justify-between text-green-400">
+                    <span>Descuento</span>
+                    <span>−{formatPrice(couponOff)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-neutral-400">
                   <span>Envío</span>
-                  <span>{delivery === "pickup" ? "Sin costo" : "A coordinar"}</span>
+                  <span>{isDomicilio ? "A coordinar" : "Sin costo"}</span>
                 </div>
-                <div className="flex justify-between font-bold text-base mt-1">
+                <div className="mt-1 flex justify-between text-base font-bold">
                   <span>Total</span>
-                  <span className="text-red-500">{formatPrice(totalPrice)}</span>
+                  <span className="text-red-500">{formatPrice(total)}</span>
                 </div>
               </div>
 
@@ -384,10 +357,13 @@ export default function CheckoutClient() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="mt-6 w-full rounded-lg bg-red-600 px-6 py-4 text-sm font-bold tracking-wider uppercase text-white transition-all hover:bg-red-700 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-6 w-full rounded-lg bg-red-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSubmitting ? "Procesando..." : "Confirmar pedido"}
+                {isSubmitting ? "Procesando..." : "Ir a pagar"}
               </button>
+              <p className="mt-3 text-center text-[11px] text-neutral-600">
+                Pagás con MercadoPago: tarjeta, débito o efectivo.
+              </p>
             </div>
           </div>
         </div>
@@ -399,16 +375,21 @@ export default function CheckoutClient() {
 function Field({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-        {label}
+      <label className="mb-1 flex items-baseline justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          {label}
+        </span>
+        {hint && <span className="text-[11px] text-neutral-600">{hint}</span>}
       </label>
       {children}
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
@@ -419,5 +400,5 @@ function Field({
 function inputClass(hasError: boolean) {
   return `w-full rounded border ${
     hasError ? "border-red-500" : "border-neutral-700"
-  } bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none transition-colors`;
+  } bg-neutral-800 px-3 py-2.5 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none transition-colors`;
 }

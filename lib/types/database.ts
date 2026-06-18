@@ -35,19 +35,32 @@ export type Database = {
           id: number;
           name: string;
           slug: string;
+          parent_id: number | null;
+          display_order: number;
           created_at: string;
         };
         Insert: {
           id?: never;
           name: string;
           slug: string;
+          parent_id?: number | null;
+          display_order?: number;
           created_at?: string;
         };
         Update: {
           name?: string;
           slug?: string;
+          parent_id?: number | null;
+          display_order?: number;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey";
+            columns: ["parent_id"];
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       products: {
         Row: {
@@ -126,7 +139,14 @@ export type Database = {
           user_id: string | null;
           status: "pending" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
           total: number;
-          delivery_type: "pickup" | "delivery";
+          delivery_type: "pickup" | "delivery" | null;
+          delivery_point: "haedo" | "ramos_mejia" | "domicilio" | null;
+          delivery_address: string | null;
+          delivery_notes: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          coupon_discount_id: number | null;
           mp_payment_id: string | null;
           mp_preference_id: string | null;
           created_at: string;
@@ -137,7 +157,14 @@ export type Database = {
           user_id?: string | null;
           status?: "pending" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
           total: number;
-          delivery_type: "pickup" | "delivery";
+          delivery_type?: "pickup" | "delivery" | null;
+          delivery_point?: "haedo" | "ramos_mejia" | "domicilio" | null;
+          delivery_address?: string | null;
+          delivery_notes?: string | null;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          customer_email?: string | null;
+          coupon_discount_id?: number | null;
           mp_payment_id?: string | null;
           mp_preference_id?: string | null;
           created_at?: string;
@@ -145,6 +172,13 @@ export type Database = {
         };
         Update: {
           status?: "pending" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
+          delivery_point?: "haedo" | "ramos_mejia" | "domicilio" | null;
+          delivery_address?: string | null;
+          delivery_notes?: string | null;
+          customer_name?: string | null;
+          customer_phone?: string | null;
+          customer_email?: string | null;
+          coupon_discount_id?: number | null;
           mp_payment_id?: string | null;
           mp_preference_id?: string | null;
           updated_at?: string;
@@ -222,6 +256,64 @@ export type Database = {
           }
         ];
       };
+      discounts: {
+        Row: {
+          id: number;
+          scope: "product" | "category" | "coupon";
+          value_type: "percent" | "fixed";
+          value: number;
+          target_product_id: number | null;
+          target_category_id: number | null;
+          code: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          max_uses: number | null;
+          uses_count: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: never;
+          scope: "product" | "category" | "coupon";
+          value_type: "percent" | "fixed";
+          value: number;
+          target_product_id?: number | null;
+          target_category_id?: number | null;
+          code?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          max_uses?: number | null;
+          uses_count?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          value_type?: "percent" | "fixed";
+          value?: number;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          max_uses?: number | null;
+          uses_count?: number;
+          is_active?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "discounts_target_product_id_fkey";
+            columns: ["target_product_id"];
+            referencedRelation: "products";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "discounts_target_category_id_fkey";
+            columns: ["target_category_id"];
+            referencedRelation: "categories";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -233,12 +325,27 @@ export type Database = {
         Args: { p_order_id: number; p_payment_id: string };
         Returns: boolean;
       };
+      validate_coupon: {
+        Args: { p_code: string };
+        Returns: {
+          id: number;
+          value_type: "percent" | "fixed";
+          value: number;
+        }[];
+      };
+      redeem_coupon: {
+        Args: { p_discount_id: number };
+        Returns: undefined;
+      };
     };
     Enums: {
       user_role: "admin" | "client";
       product_size: "XS" | "S" | "M" | "L" | "XL" | "XXL";
       order_status: "pending" | "paid" | "preparing" | "shipped" | "delivered" | "cancelled";
       delivery_type: "pickup" | "delivery";
+      delivery_point: "haedo" | "ramos_mejia" | "domicilio";
+      discount_scope: "product" | "category" | "coupon";
+      discount_value_type: "percent" | "fixed";
     };
     CompositeTypes: Record<string, never>;
   };
@@ -252,12 +359,21 @@ export type ProductVariant = Database["public"]["Tables"]["product_variants"]["R
 export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 export type ShippingAddress = Database["public"]["Tables"]["shipping_addresses"]["Row"];
+export type Discount = Database["public"]["Tables"]["discounts"]["Row"];
 
 export type ProductSize = Database["public"]["Enums"]["product_size"];
 export type OrderStatus = Database["public"]["Enums"]["order_status"];
 export type DeliveryType = Database["public"]["Enums"]["delivery_type"];
+export type DeliveryPoint = Database["public"]["Enums"]["delivery_point"];
+export type DiscountScope = Database["public"]["Enums"]["discount_scope"];
+export type DiscountValueType = Database["public"]["Enums"]["discount_value_type"];
 
 export type ProductWithVariants = Product & {
   variants: ProductVariant[];
   category: Category | null;
+};
+
+// Categoría con sus subcategorías anidadas (para el árbol de filtros/admin)
+export type CategoryWithChildren = Category & {
+  children: Category[];
 };

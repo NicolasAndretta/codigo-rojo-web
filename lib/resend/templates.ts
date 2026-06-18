@@ -1,4 +1,8 @@
 import { formatPrice } from "@/lib/utils/format";
+import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
+import type { DeliveryPoint } from "@/lib/types/database";
+
+export type { DeliveryPoint };
 
 export type OrderEmailItem = {
   name: string;
@@ -7,26 +11,16 @@ export type OrderEmailItem = {
   unitPrice: number;
 };
 
-export type OrderEmailAddress = {
-  full_name: string;
-  phone: string;
-  street: string;
-  number: string;
-  floor_apt: string | null;
-  localidad: string;
-  provincia: string;
-  codigo_postal: string;
-  notes: string | null;
-};
-
 export type OrderEmailData = {
   orderId: number;
   customerName: string;
+  customerPhone: string;
   customerEmail: string;
   total: number;
-  deliveryType: "pickup" | "delivery";
+  deliveryPoint: DeliveryPoint;
+  deliveryAddress: string | null;
+  deliveryNotes: string | null;
   items: OrderEmailItem[];
-  address: OrderEmailAddress | null;
 };
 
 const BG = "#0a0a0a";
@@ -74,15 +68,20 @@ function itemsTable(items: OrderEmailItem[]): string {
   return `<table style="width:100%;border-collapse:collapse;margin:8px 0;">${rows}</table>`;
 }
 
-function addressBlock(a: OrderEmailAddress): string {
+function deliveryBlock(data: OrderEmailData): string {
+  const label = DELIVERY_POINT_LABELS[data.deliveryPoint];
+  const extra =
+    data.deliveryPoint === "domicilio" && data.deliveryAddress
+      ? `<br/>${data.deliveryAddress}`
+      : "";
+  const notes = data.deliveryNotes
+    ? `<br/><span style="color:${MUTED};">${data.deliveryNotes}</span>`
+    : "";
   return `
     <div style="margin-top:16px;padding:14px;background:${BG};border:1px solid ${BORDER};border-radius:8px;">
-      <p style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;">Envío a domicilio</p>
+      <p style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 6px;">Entrega</p>
       <p style="color:${TEXT};font-size:14px;margin:0;line-height:1.6;">
-        ${a.full_name} · ${a.phone}<br/>
-        ${a.street} ${a.number}${a.floor_apt ? `, ${a.floor_apt}` : ""}<br/>
-        ${a.localidad}, ${a.provincia} (CP ${a.codigo_postal})
-        ${a.notes ? `<br/><span style="color:${MUTED};">${a.notes}</span>` : ""}
+        ${label}${extra}${notes}
       </p>
     </div>`;
 }
@@ -96,13 +95,6 @@ function totalRow(total: number): string {
 }
 
 export function orderConfirmationHtml(data: OrderEmailData): string {
-  const delivery =
-    data.deliveryType === "pickup"
-      ? `<p style="color:${MUTED};font-size:14px;margin:12px 0 0;">Retiro en local — te contactamos por WhatsApp para coordinar.</p>`
-      : data.address
-        ? addressBlock(data.address)
-        : "";
-
   const inner = `
     <p style="color:${MUTED};font-size:14px;margin:0 0 16px;line-height:1.6;">
       Hola ${data.customerName || "👋"}, recibimos tu pago. Tu pedido
@@ -110,28 +102,22 @@ export function orderConfirmationHtml(data: OrderEmailData): string {
     </p>
     ${itemsTable(data.items)}
     ${totalRow(data.total)}
-    ${delivery}
-    <p style="color:${MUTED};font-size:13px;margin-top:20px;">¡Gracias por elegir Código Rojo!</p>
+    ${deliveryBlock(data)}
+    <p style="color:${MUTED};font-size:13px;margin-top:20px;">Te vamos a escribir por WhatsApp para coordinar la entrega. ¡Gracias por elegir Código Rojo!</p>
   `;
   return shell("¡Pedido confirmado!", inner);
 }
 
 export function adminNotificationHtml(data: OrderEmailData): string {
-  const delivery =
-    data.deliveryType === "pickup"
-      ? `<p style="color:${MUTED};font-size:14px;margin:12px 0 0;">Modalidad: <strong style="color:${TEXT};">Retiro en local</strong></p>`
-      : data.address
-        ? addressBlock(data.address)
-        : "";
-
   const inner = `
     <p style="color:${MUTED};font-size:14px;margin:0 0 16px;line-height:1.6;">
       Nueva orden pagada <strong style="color:${TEXT};">#${data.orderId}</strong><br/>
-      Cliente: ${data.customerName || "—"} (${data.customerEmail || "sin email"})
+      Cliente: ${data.customerName || "—"} · ${data.customerPhone || "sin teléfono"}
+      ${data.customerEmail ? `<br/>${data.customerEmail}` : ""}
     </p>
     ${itemsTable(data.items)}
     ${totalRow(data.total)}
-    ${delivery}
+    ${deliveryBlock(data)}
   `;
   return shell("Nueva orden", inner);
 }

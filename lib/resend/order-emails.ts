@@ -5,13 +5,18 @@ import {
   adminNotificationHtml,
   type OrderEmailData,
   type OrderEmailItem,
-  type OrderEmailAddress,
+  type DeliveryPoint,
 } from "./templates";
 
 type OrderRow = {
   id: number;
   total: number;
-  delivery_type: "pickup" | "delivery";
+  delivery_point: DeliveryPoint | null;
+  delivery_address: string | null;
+  delivery_notes: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
   user_id: string | null;
 };
 
@@ -30,22 +35,26 @@ export async function sendOrderEmails(orderId: number): Promise<void> {
 
     const { data: order } = await supabase
       .from("orders")
-      .select("id, total, delivery_type, user_id")
+      .select(
+        "id, total, delivery_point, delivery_address, delivery_notes, customer_name, customer_phone, customer_email, user_id"
+      )
       .eq("id", orderId)
       .single<OrderRow>();
 
     if (!order) return;
 
-    let customerEmail = "";
-    let customerName = "";
-    if (order.user_id) {
+    // Contacto: prioriza los datos cargados en el checkout invitado;
+    // cae al perfil si la orden estuviera asociada a una cuenta.
+    let customerEmail = order.customer_email ?? "";
+    let customerName = order.customer_name ?? "";
+    if (order.user_id && (!customerEmail || !customerName)) {
       const { data: profile } = await supabase
         .from("profiles")
         .select("email, full_name")
         .eq("id", order.user_id)
         .single<{ email: string; full_name: string | null }>();
-      customerEmail = profile?.email ?? "";
-      customerName = profile?.full_name ?? "";
+      customerEmail = customerEmail || (profile?.email ?? "");
+      customerName = customerName || (profile?.full_name ?? "");
     }
 
     const { data: rawItems } = await supabase
@@ -61,24 +70,16 @@ export async function sendOrderEmails(orderId: number): Promise<void> {
       unitPrice: r.unit_price,
     }));
 
-    let address: OrderEmailAddress | null = null;
-    if (order.delivery_type === "delivery") {
-      const { data: addr } = await supabase
-        .from("shipping_addresses")
-        .select("full_name, phone, street, number, floor_apt, localidad, provincia, codigo_postal, notes")
-        .eq("order_id", orderId)
-        .maybeSingle<OrderEmailAddress>();
-      address = addr ?? null;
-    }
-
     const data: OrderEmailData = {
       orderId,
       customerName,
+      customerPhone: order.customer_phone ?? "",
       customerEmail,
       total: order.total,
-      deliveryType: order.delivery_type,
+      deliveryPoint: order.delivery_point ?? "haedo",
+      deliveryAddress: order.delivery_address,
+      deliveryNotes: order.delivery_notes,
       items,
-      address,
     };
 
     const from = process.env.EMAIL_FROM ?? "Código Rojo <onboarding@resend.dev>";

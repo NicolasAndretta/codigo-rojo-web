@@ -61,12 +61,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Checkout requiere auth
-  if (pathname.startsWith("/checkout") && !user) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return redirectTo(loginUrl);
-  }
-
+  // El checkout es público (compra como invitado): no requiere sesión.
   return supabaseResponse;
 }
