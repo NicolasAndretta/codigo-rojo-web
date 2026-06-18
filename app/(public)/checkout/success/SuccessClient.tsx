@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { CheckCircle, MessageCircle } from "lucide-react";
 import { useCart } from "@/lib/hooks/useCart";
@@ -9,6 +9,19 @@ import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
 import { loadLastOrder, clearLastOrder, type LastOrder } from "@/lib/checkout/lastOrder";
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "";
+
+// El snapshot del pedido vive en localStorage (cliente). Lo leemos con
+// useSyncExternalStore para que el render sea SSR-safe (servidor → null) sin
+// caer en un setState dentro de un efecto. Cacheamos por orderId para devolver
+// una referencia estable (requisito de getSnapshot).
+const emptySubscribe = () => () => {};
+let snapshotCache: { key?: number; value: LastOrder | null } = { value: null };
+function getOrderSnapshot(orderId?: number): LastOrder | null {
+  if (snapshotCache.key !== orderId) {
+    snapshotCache = { key: orderId, value: loadLastOrder(orderId) };
+  }
+  return snapshotCache.value;
+}
 
 function buildWhatsAppMessage(order: LastOrder): string {
   const lines = [
@@ -28,13 +41,16 @@ function buildWhatsAppMessage(order: LastOrder): string {
 
 export default function SuccessClient({ orderId }: { orderId?: number }) {
   const { clearCart } = useCart();
-  const [order, setOrder] = useState<LastOrder | null>(null);
+  const order = useSyncExternalStore(
+    emptySubscribe,
+    () => getOrderSnapshot(orderId),
+    () => null,
+  );
 
-  // Pago aprobado → vaciar carrito y recuperar el snapshot para el WhatsApp.
+  // Pago aprobado → vaciar el carrito (el snapshot ya se leyó del store).
   useEffect(() => {
-    setOrder(loadLastOrder(orderId));
     clearCart();
-  }, [clearCart, orderId]);
+  }, [clearCart]);
 
   const whatsappUrl = order
     ? formatWhatsAppUrl(WHATSAPP_NUMBER, buildWhatsAppMessage(order))
