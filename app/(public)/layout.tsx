@@ -31,8 +31,14 @@ export default async function PublicLayout({
       <Navbar user={navUser} />
       <main className="flex-1">{children}</main>
       <WhatsAppFloat />
-      <footer className="border-t border-neutral-800 py-8 text-center text-sm text-neutral-500">
-        <p>
+      <footer className="border-t border-neutral-800 py-10 text-center">
+        <p className="font-display text-2xl tracking-[0.3em] text-neutral-200">
+          CÓDIGO <span className="text-red-600">ROJO</span>
+        </p>
+        <p className="mt-1 font-display text-xs tracking-[0.35em] text-neutral-500">
+          TU ESTILO, BAJO CONTROL.
+        </p>
+        <p className="mt-4 text-sm text-neutral-500">
           © {new Date().getFullYear()} Código Rojo —{" "}
           <a
             href="https://www.instagram.com/codigorojo.ind"

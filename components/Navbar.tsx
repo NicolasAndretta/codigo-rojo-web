@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import CartButton from "./CartButton";
 import AccountMenu from "./AccountMenu";
 
@@ -9,13 +10,24 @@ type Props = {
 export default function Navbar({ user }: Props) {
   return (
     <header className="sticky top-0 z-50 border-b border-neutral-800 bg-neutral-950/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
         {/* Logo */}
         <Link
           href="/catalogo"
-          className="font-display text-3xl tracking-widest text-red-600 hover:text-red-500 transition-colors"
+          aria-label="Código Rojo — Inicio"
+          className="group flex items-center transition-opacity hover:opacity-90"
         >
-          CÓDIGO ROJO
+          <Image
+            src="/images/branding/logo-codigo-rojo.png"
+            alt="Código Rojo"
+            width={48}
+            height={48}
+            priority
+            className="h-11 w-11 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105"
+          />
+          <span className="ml-2.5 hidden font-display text-2xl leading-none tracking-widest text-neutral-50 sm:block">
+            CÓDIGO <span className="text-red-600">ROJO</span>
+          </span>
         </Link>
 
         {/* Nav links — desktop */}

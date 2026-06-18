@@ -15,10 +15,11 @@ const bebasNeue = Bebas_Neue({
 
 export const metadata: Metadata = {
   title: "Código Rojo | Streetwear Argentina",
-  description: "Ropa urbana con identidad. Remeras, hoodies y más.",
+  description:
+    "Tu estilo, bajo control. Streetwear argentino con identidad: remeras, buzos, pantalones y más. Envíos a CABA y zona oeste.",
   openGraph: {
-    title: "Código Rojo",
-    description: "Ropa urbana con identidad.",
+    title: "Código Rojo — Tu estilo, bajo control.",
+    description: "Streetwear argentino con identidad. Prendas urbanas, diseños limitados.",
     type: "website",
   },
 };

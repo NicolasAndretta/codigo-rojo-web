@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { Package, ClipboardList, Store, FolderTree, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -29,11 +30,17 @@ export default async function AdminLayout({
       {/* Topbar admin */}
       <header className="border-b border-neutral-800 bg-neutral-950">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link
-            href="/admin"
-            className="font-display text-2xl tracking-widest text-red-600"
-          >
-            CÓDIGO ROJO · ADMIN
+          <Link href="/admin" className="flex items-center gap-2.5">
+            <Image
+              src="/images/branding/logo-codigo-rojo.png"
+              alt="Código Rojo"
+              width={36}
+              height={36}
+              className="h-9 w-9"
+            />
+            <span className="font-display text-xl tracking-widest text-neutral-100">
+              ADMIN
+            </span>
           </Link>
           <nav className="flex items-center gap-5 text-sm font-medium">
             <Link

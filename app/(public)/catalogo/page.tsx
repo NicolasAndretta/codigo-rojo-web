@@ -70,15 +70,23 @@ export default async function CatalogoPage({
     <div>
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-neutral-800/80">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:py-24">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.3em] text-red-500">
+        {/* Resplandor rojo sutil para dar profundidad (estático, sin costo de animación) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-1/3 right-0 h-[120%] w-2/3 bg-[radial-gradient(ellipse_at_top_right,rgba(220,38,38,0.18),transparent_60%)]"
+        />
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-24">
+          <span className="inline-flex items-center rounded-full border border-red-900/60 bg-red-950/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-red-400">
             Streetwear Argentina
-          </p>
-          <h1 className="font-display text-6xl leading-[0.9] tracking-tight text-neutral-50 sm:text-8xl md:text-9xl">
+          </span>
+          <h1 className="mt-5 font-display text-6xl leading-[0.9] tracking-tight text-neutral-50 sm:text-8xl md:text-9xl">
             VESTÍ EL<br />
             <span className="text-red-600">CÓDIGO.</span>
           </h1>
-          <p className="mt-6 max-w-md text-sm leading-relaxed text-neutral-400">
+          <p className="mt-5 font-display text-lg tracking-[0.3em] text-neutral-300 sm:text-xl">
+            TU ESTILO, BAJO CONTROL.
+          </p>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-neutral-400">
             Prendas urbanas con identidad. Diseños limitados, hechos para la calle.
           </p>
         </div>
@@ -149,8 +157,8 @@ export default async function CatalogoPage({
           {/* Envíos */}
           <div className="grid gap-4 sm:grid-cols-2">
             {[
-              { t: "Retiro en local", d: "Coordinás por WhatsApp y retirás sin costo." },
-              { t: "Envío a domicilio", d: "Envíos dentro de CABA. Coordinamos el envío con vos." },
+              { t: "Retiro en estación", d: "Haedo o Ramos Mejía, sin costo. Coordinás por WhatsApp." },
+              { t: "Envío a domicilio", d: "CABA y zona oeste. El envío lo coordinamos con vos." },
               { t: "Pago seguro", d: "Pagás con MercadoPago: tarjeta, débito o efectivo." },
               { t: "Atención directa", d: "Te escribimos por WhatsApp en cada compra." },
             ].map((item) => (

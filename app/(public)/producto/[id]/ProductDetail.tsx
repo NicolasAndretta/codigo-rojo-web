@@ -189,15 +189,15 @@ export default function ProductDetail({ product, price }: Props) {
           {/* Trust row */}
           <div className="grid grid-cols-3 gap-3 border-t border-neutral-800 pt-5">
             <div className="text-center">
-              <Truck size={20} className="mx-auto mb-1.5 text-neutral-400" />
+              <Store size={20} className="mx-auto mb-1.5 text-neutral-400" />
               <p className="text-[11px] leading-tight text-neutral-500">
-                Envíos dentro de CABA
+                Retiro en Haedo o Ramos Mejía
               </p>
             </div>
             <div className="text-center">
-              <Store size={20} className="mx-auto mb-1.5 text-neutral-400" />
+              <Truck size={20} className="mx-auto mb-1.5 text-neutral-400" />
               <p className="text-[11px] leading-tight text-neutral-500">
-                Retiro en local
+                Envío a CABA y zona oeste
               </p>
             </div>
             <div className="text-center">
