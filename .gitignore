@@ -43,6 +43,7 @@ yarn-error.log*
 skills-lock.json
 CLAUDE.md
 AGENTS.md
+CONTEXTO-PARA-CONTINUAR.md
 
 # typescript
 *.tsbuildinfo
