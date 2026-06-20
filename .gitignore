@@ -37,7 +37,7 @@ yarn-error.log*
 # vercel
 .vercel
 
-# herramientas de desarrollo (Claude Code / agentes)
+# herramientas y notas locales de desarrollo (no versionar)
 .claude/
 .agents/
 skills-lock.json
@@ -49,6 +49,9 @@ CONTEXTO-PARA-CONTINUAR.md
 *.tsbuildinfo
 next-env.d.ts
 
-# artefactos de pruebas E2E (screenshots y scripts locales)
+# artefactos de pruebas E2E (screenshots, scripts locales, reportes)
 _e2e_shots/
+scripts/_e2e/
 scripts/_e2e_*.mjs
+scripts/seed-test-users.mjs
+REPORTE-*.md
