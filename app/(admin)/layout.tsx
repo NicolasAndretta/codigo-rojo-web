@@ -1,8 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import { Package, ClipboardList, Store, FolderTree, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import AdminNav from "@/components/admin/AdminNav";
 
 export default async function AdminLayout({
   children,
@@ -42,38 +42,7 @@ export default async function AdminLayout({
               ADMIN
             </span>
           </Link>
-          <nav className="flex items-center gap-5 text-sm font-medium">
-            <Link
-              href="/admin/productos"
-              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
-            >
-              <Package size={16} /> Productos
-            </Link>
-            <Link
-              href="/admin/categorias"
-              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
-            >
-              <FolderTree size={16} /> Categorías
-            </Link>
-            <Link
-              href="/admin/descuentos"
-              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
-            >
-              <Tag size={16} /> Descuentos
-            </Link>
-            <Link
-              href="/admin/ordenes"
-              className="flex items-center gap-2 text-neutral-300 hover:text-neutral-50 transition-colors"
-            >
-              <ClipboardList size={16} /> Órdenes
-            </Link>
-            <Link
-              href="/catalogo"
-              className="flex items-center gap-2 text-neutral-500 hover:text-neutral-300 transition-colors"
-            >
-              <Store size={16} /> Ver tienda
-            </Link>
-          </nav>
+          <AdminNav />
         </div>
       </header>
 
