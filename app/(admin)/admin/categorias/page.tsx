@@ -1,6 +1,7 @@
 import { Trash2, FolderPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createCategory, deleteCategory } from "@/lib/admin/actions";
+import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
 import type { Category } from "@/lib/types/database";
 
 export const metadata = { title: "Categorías | Admin" };
@@ -30,7 +31,12 @@ export default async function CategoriasAdminPage() {
           <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-neutral-400">
             <FolderPlus size={16} /> Nueva categoría
           </h2>
-          <form action={createCategory} className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <SavingForm
+            action={createCategory}
+            successMessage="Categoría creada"
+            resetOnSuccess
+            className="flex flex-col gap-4 sm:flex-row sm:items-end"
+          >
             <div className="flex-1">
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
                 Nombre
@@ -59,13 +65,13 @@ export default async function CategoriasAdminPage() {
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Agregando…"
               className="shrink-0 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold uppercase tracking-wider text-white transition-colors hover:bg-red-700"
             >
               Agregar
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
         </section>
 
         {/* Listado */}
@@ -105,7 +111,10 @@ function CategoryRow({ category, child = false }: { category: Category; child?: 
       <span className={`text-sm ${child ? "text-neutral-400" : "font-semibold text-neutral-100"}`}>
         {category.name}
       </span>
-      <form action={deleteCategory.bind(null, category.id)}>
+      <SavingForm
+        action={deleteCategory.bind(null, category.id)}
+        successMessage="Categoría eliminada"
+      >
         <button
           type="submit"
           className="flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-red-950 hover:text-red-300"
@@ -113,7 +122,7 @@ function CategoryRow({ category, child = false }: { category: Category; child?: 
         >
           <Trash2 size={14} />
         </button>
-      </form>
+      </SavingForm>
     </div>
   );
 }

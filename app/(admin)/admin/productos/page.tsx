@@ -57,12 +57,22 @@ export default async function ProductosAdminPage() {
                 <div className="flex-1 min-w-0">
                   <p className="truncate font-semibold text-neutral-100">{p.name}</p>
                   <p className="text-sm text-neutral-500">{formatPrice(p.price)}</p>
+                  {/* En mobile el badge de reposición va debajo del nombre */}
+                  {totalStock === 0 && (
+                    <span className="mt-1 inline-flex items-center rounded-full border border-red-700 bg-red-950/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-300 sm:hidden">
+                      Sin stock — reponer
+                    </span>
+                  )}
                 </div>
 
-                <div className="text-right text-sm">
-                  <p className={totalStock > 0 ? "text-neutral-300" : "text-red-400"}>
-                    {totalStock} en stock
-                  </p>
+                <div className="hidden text-right text-sm sm:block">
+                  {totalStock === 0 ? (
+                    <span className="inline-flex items-center rounded-full border border-red-700 bg-red-950/50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-red-300">
+                      Sin stock
+                    </span>
+                  ) : (
+                    <p className="text-neutral-300">{totalStock} en stock</p>
+                  )}
                 </div>
 
                 <span

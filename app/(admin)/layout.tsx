@@ -3,6 +3,7 @@ import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import AdminNav from "@/components/admin/AdminNav";
+import ToastProvider from "@/components/ui/Toast";
 
 export default async function AdminLayout({
   children,
@@ -26,6 +27,7 @@ export default async function AdminLayout({
   if (profile?.role !== "admin") redirect("/catalogo");
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen flex-col">
       {/* Topbar admin */}
       <header className="border-b border-neutral-800 bg-neutral-950">
@@ -48,5 +50,6 @@ export default async function AdminLayout({
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
     </div>
+    </ToastProvider>
   );
 }

@@ -11,6 +11,8 @@ import {
   toggleProductActive,
 } from "@/lib/admin/actions";
 import CategorySelect from "@/components/admin/CategorySelect";
+import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
+import { totalStock as sumStock } from "@/lib/utils/stock";
 import type { Category, Product, ProductVariant, ProductSize } from "@/lib/types/database";
 
 export const metadata = { title: "Editar producto | Admin" };
@@ -39,10 +41,17 @@ export default async function EditarProductoPage({
 
   const product = productData as Product & { variants: ProductVariant[] };
   const categories = (rawCategories ?? []) as Category[];
-  const variants = [...product.variants].sort(
+  // Defensivo: si por datos inconsistentes faltan variantes o el array de
+  // imágenes quedó con huecos, no debe romper la página (la prima vio un
+  // "server error" en una de estas rutas). Normalizamos acá.
+  const variants = [...(product.variants ?? [])].sort(
     (a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size)
   );
-  const canPublish = !!product.images[0]; // requiere foto de la prenda (slot 0)
+  // En el editor las posiciones importan (slot 0 = prenda, slot 1 = modelo),
+  // así que NO compactamos; solo nos aseguramos de tener un array (null-safe).
+  const images = product.images ?? [];
+  const outOfStock = sumStock(variants) === 0;
+  const canPublish = !!images[0]; // requiere foto de la prenda (slot 0)
 
   return (
     <div className="max-w-3xl">
@@ -84,7 +93,11 @@ export default async function EditarProductoPage({
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
             Detalles
           </h2>
-          <form action={updateProduct.bind(null, product.id)} className="flex flex-col gap-4">
+          <SavingForm
+            action={updateProduct.bind(null, product.id)}
+            successMessage="Detalles guardados"
+            className="flex flex-col gap-4"
+          >
             <div>
               <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
                 Nombre
@@ -129,21 +142,33 @@ export default async function EditarProductoPage({
                 <CategorySelect categories={categories} defaultValue={product.category_id} />
               </div>
             </div>
-            <button
-              type="submit"
-              className="mt-1 self-start rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors"
-            >
+            <SubmitButton className="mt-1 self-start rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors">
               Guardar detalles
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
         </section>
 
         {/* Stock por talle */}
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
-          <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
-            Stock por talle
-          </h2>
-          <form action={setProductStock.bind(null, product.id)}>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-neutral-400">
+              Stock por talle
+            </h2>
+            {outOfStock && (
+              <span className="inline-flex items-center rounded-full border border-red-700 bg-red-950/50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-red-300">
+                Sin stock — reponer
+              </span>
+            )}
+          </div>
+          {variants.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              Este producto no tiene talles cargados.
+            </p>
+          ) : (
+          <SavingForm
+            action={setProductStock.bind(null, product.id)}
+            successMessage="Stock actualizado"
+          >
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
               {variants.map((v) => (
                 <div key={v.id}>
@@ -160,13 +185,11 @@ export default async function EditarProductoPage({
                 </div>
               ))}
             </div>
-            <button
-              type="submit"
-              className="mt-4 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors"
-            >
+            <SubmitButton className="mt-4 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors">
               Guardar stock
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
+          )}
         </section>
 
         {/* Fotos */}
@@ -182,7 +205,7 @@ export default async function EditarProductoPage({
             <PhotoSlot
               productId={product.id}
               slot={0}
-              url={product.images[0]}
+              url={images[0]}
               title="Foto de la prenda"
               badge="Obligatoria"
               badgeClass="bg-red-600/15 text-red-300 border-red-900"
@@ -190,7 +213,7 @@ export default async function EditarProductoPage({
             <PhotoSlot
               productId={product.id}
               slot={1}
-              url={product.images[1]}
+              url={images[1]}
               title="Foto con modelo"
               badge="Opcional"
               badgeClass="bg-neutral-800 text-neutral-400 border-neutral-700"

@@ -138,6 +138,12 @@ export async function uploadProductImage(id: number, slot: number, formData: For
     .single<{ images: string[] }>();
 
   const images = [...(product?.images ?? [])];
+  // Padear huecos previos con "" para no escribir NULLs en el text[]:
+  // subir la foto del slot 1 con el slot 0 vacío dejaba [null, url] en la DB,
+  // un array disperso que después rompía el render. "" es falsy y seguro.
+  for (let i = 0; i < slot; i++) {
+    if (images[i] == null) images[i] = "";
+  }
   const previousUrl = images[slot];
   images[slot] = pub.publicUrl;
   await supabase.from("products").update({ images }).eq("id", id);

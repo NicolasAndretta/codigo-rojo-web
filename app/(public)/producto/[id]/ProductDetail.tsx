@@ -21,6 +21,11 @@ export default function ProductDetail({ product, price }: Props) {
   const [added, setAdded] = useState(false);
   const { addItem } = useCart();
 
+  // Imágenes válidas (descarta huecos/nulos por si el array quedó disperso).
+  const images = product.images.filter(Boolean);
+  // Sin stock = ningún talle disponible. 100% data-driven: si reponen, vuelve solo.
+  const soldOut = product.variants.every((v) => v.stock <= 0);
+
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "";
   const whatsappMsg = `Hola! Quiero comprar: ${product.name}${selectedVariant ? ` (Talle ${selectedVariant.size})` : ""}`;
   const whatsappUrl = formatWhatsAppUrl(whatsappNumber, whatsappMsg);
@@ -33,7 +38,7 @@ export default function ProductDetail({ product, price }: Props) {
       name: product.name,
       size: selectedVariant.size,
       price: price.final, // precio con descuento aplicado
-      image: product.images[0] ?? null,
+      image: images[0] ?? null,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -54,13 +59,13 @@ export default function ProductDetail({ product, price }: Props) {
         {/* Imágenes */}
         <div className="flex flex-col gap-3 md:sticky md:top-24 md:self-start">
           <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-neutral-900">
-            {product.images[activeImage] ? (
+            {images[activeImage] ? (
               <Image
-                src={product.images[activeImage]}
+                src={images[activeImage]}
                 alt={product.name}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover"
+                className={`object-cover ${soldOut ? "opacity-50 grayscale" : ""}`}
                 priority
               />
             ) : (
@@ -70,12 +75,19 @@ export default function ProductDetail({ product, price }: Props) {
                 </span>
               </div>
             )}
+            {soldOut && (
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                <span className="absolute left-[-30%] top-10 w-[160%] rotate-[-45deg] bg-red-600/95 py-2 text-center text-sm font-black tracking-[0.45em] text-white shadow-lg">
+                  AGOTADO
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Thumbnails */}
-          {product.images.length > 1 && (
+          {images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
-              {product.images.map((img, i) => (
+              {images.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveImage(i)}
@@ -118,6 +130,18 @@ export default function ProductDetail({ product, price }: Props) {
             </p>
           )}
 
+          {/* Aviso de sin stock */}
+          {soldOut && (
+            <div className="rounded-lg border border-red-900/60 bg-red-950/30 px-4 py-3">
+              <p className="text-sm font-bold uppercase tracking-wide text-red-300">
+                Producto sin stock disponible
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">
+                Por ahora no quedan talles. Consultanos por WhatsApp por la próxima reposición.
+              </p>
+            </div>
+          )}
+
           {/* Selector de talle */}
           <div>
             <p className="mb-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">
@@ -158,9 +182,9 @@ export default function ProductDetail({ product, price }: Props) {
           <div className="flex flex-col gap-3 pt-2">
             <button
               onClick={handleAddToCart}
-              disabled={!selectedVariant}
+              disabled={!selectedVariant || soldOut}
               className={`flex w-full items-center justify-center gap-3 rounded-lg px-6 py-4 text-sm font-bold tracking-wider uppercase transition-all ${
-                !selectedVariant
+                !selectedVariant || soldOut
                   ? "cursor-not-allowed bg-neutral-800 text-neutral-600"
                   : added
                   ? "bg-green-700 text-white"
@@ -168,7 +192,9 @@ export default function ProductDetail({ product, price }: Props) {
               }`}
             >
               <ShoppingBag size={18} />
-              {!selectedVariant
+              {soldOut
+                ? "Sin stock"
+                : !selectedVariant
                 ? "Seleccioná un talle"
                 : added
                 ? "¡Agregado al carrito!"

@@ -40,6 +40,7 @@ yarn-error.log*
 # herramientas y notas locales de desarrollo (no versionar)
 .claude/
 .agents/
+.antigravity/
 skills-lock.json
 CLAUDE.md
 AGENTS.md
