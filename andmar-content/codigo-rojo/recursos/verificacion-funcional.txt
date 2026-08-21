@@ -1,0 +1,83 @@
+  OK   Home redirige a /catalogo http://127.0.0.1:3000/catalogo
+  OK   Catálogo lista productos activos 12 PRODUCTOS
+  OK   Filtro por categoría raíz (Remeras) 3 PRODUCTOS
+  OK   Subcategorías aparecen al elegir la madre (Pantalones → Jean/Joggin) 4 PRODUCTOS · subcats visibles
+  OK   Filtro por subcategoría (Jean) 2 PRODUCTOS
+  OK   Filtro por talle combinado con categoría http://127.0.0.1:3000/catalogo?category=jean&size=XXL → 0 PRODUCTOS
+  OK   Estado vacío 'SIN RESULTADOS' se muestra
+  OK   Badges de descuento y precio tachado en el catálogo 4 badges de descuento
+  OK   Badge AGOTADO en producto sin stock 1 agotado(s)
+  OK   Ficha de producto: galería, talles y stock BUZO HOODIE FRISA PREMIUM
+  OK   Selector de talle deshabilita talles sin stock 2 botones deshabilitados
+  OK   Agregar al carrito actualiza el contador agregado
+  OK   Carrito muestra ítem, subtotal y permite cambiar cantidad Subtotal (1 items) | Total
+  OK   Checkout: formulario invitado y puntos de entrega puntos: Haedo, Ramos Mejía, domicilio
+  OK   Cupón válido (ROJO10) se aplica y descuenta aplicado
+  OK   Cupón inválido devuelve error error mostrado
+  OK   BUG: /checkout con carga directa rebota a /carrito REPRODUCIDO: redirige a /carrito
+  OK   Botón flotante de WhatsApp presente 1 link
+  OK   /admin sin sesión redirige a /login http://127.0.0.1:3000/login?redirect=%2Fadmin
+  OK   Login con credenciales inválidas muestra error error traducido al español
+  OK   Login admin correcto entra al panel http://127.0.0.1:3000/admin
+  OK   Dashboard con contadores reales ADMIN | Productos | Categorías | Descuentos | Órdenes | Ver tienda | PANEL | 12 | Productos | 1 | Pagadas sin preparar | 2 | En curso
+  OK   Listado de productos con stock y estado 13 filas
+  OK   Crear producto nuevo http://127.0.0.1:3000/admin/productos/13
+  OK   Subir foto de prenda (slot 0) al producto nuevo 1 imagen(es)
+  OK   Editar stock por talle 6 talles actualizados
+  OK   Publicar/despublicar producto (toggle activo) OCULTO — ACTIVAR → ACTIVO — OCULTAR
+  OK   Crear categoría / subcategoría Camperas creada
+  OK   Crear subcategoría dentro de una madre Rompeviento dentro de Camperas
+  OK   Eliminar categoría eliminada
+  OK   Panel de descuentos: listado existente 4 items
+  OK   Crear cupón nuevo DEMO15 creado
+  OK   Órdenes: listado con estados 5 órdenes
+  OK   Detalle de orden con items y datos de entrega ADMIN | Productos | Categorías
+  OK   Cambiar estado de una orden estado actualizado
+  OK   El descuento creado impacta en la tienda 5 badges visibles
+  OK   Cupón nuevo (DEMO15) valida en el checkout validado end-to-end
+  OK   Cerrar sesión sin botón visible en esta vista
+
+===== ERRORES DE PÁGINA =====
+ninguno
+
+===== RESUMEN =====
+OK     | Home redirige a /catalogo | http://127.0.0.1:3000/catalogo
+OK     | Catálogo lista productos activos | 12 PRODUCTOS
+OK     | Filtro por categoría raíz (Remeras) | 3 PRODUCTOS
+OK     | Subcategorías aparecen al elegir la madre (Pantalones → Jean/Joggin) | 4 PRODUCTOS · subcats visibles
+OK     | Filtro por subcategoría (Jean) | 2 PRODUCTOS
+OK     | Filtro por talle combinado con categoría | http://127.0.0.1:3000/catalogo?category=jean&size=XXL → 0 PRODUCTOS
+OK     | Estado vacío 'SIN RESULTADOS' | se muestra
+OK     | Badges de descuento y precio tachado en el catálogo | 4 badges de descuento
+OK     | Badge AGOTADO en producto sin stock | 1 agotado(s)
+OK     | Ficha de producto: galería, talles y stock | BUZO HOODIE FRISA PREMIUM
+OK     | Selector de talle deshabilita talles sin stock | 2 botones deshabilitados
+OK     | Agregar al carrito actualiza el contador | agregado
+OK     | Carrito muestra ítem, subtotal y permite cambiar cantidad | Subtotal (1 items) | Total
+OK     | Checkout: formulario invitado y puntos de entrega | puntos: Haedo, Ramos Mejía, domicilio
+OK     | Cupón válido (ROJO10) se aplica y descuenta | aplicado
+OK     | Cupón inválido devuelve error | error mostrado
+OK     | BUG: /checkout con carga directa rebota a /carrito | REPRODUCIDO: redirige a /carrito
+OK     | Botón flotante de WhatsApp presente | 1 link
+OK     | /admin sin sesión redirige a /login | http://127.0.0.1:3000/login?redirect=%2Fadmin
+OK     | Login con credenciales inválidas muestra error | error traducido al español
+OK     | Login admin correcto entra al panel | http://127.0.0.1:3000/admin
+OK     | Dashboard con contadores reales | ADMIN | Productos | Categorías | Descuentos | Órdenes | Ver tienda | PANEL | 12 | Productos | 1 | Pagadas sin preparar | 2 | En curso
+OK     | Listado de productos con stock y estado | 13 filas
+OK     | Crear producto nuevo | http://127.0.0.1:3000/admin/productos/13
+OK     | Subir foto de prenda (slot 0) al producto nuevo | 1 imagen(es)
+OK     | Editar stock por talle | 6 talles actualizados
+OK     | Publicar/despublicar producto (toggle activo) | OCULTO — ACTIVAR → ACTIVO — OCULTAR
+OK     | Crear categoría / subcategoría | Camperas creada
+OK     | Crear subcategoría dentro de una madre | Rompeviento dentro de Camperas
+OK     | Eliminar categoría | eliminada
+OK     | Panel de descuentos: listado existente | 4 items
+OK     | Crear cupón nuevo | DEMO15 creado
+OK     | Órdenes: listado con estados | 5 órdenes
+OK     | Detalle de orden con items y datos de entrega | ADMIN | Productos | Categorías
+OK     | Cambiar estado de una orden | estado actualizado
+OK     | El descuento creado impacta en la tienda | 5 badges visibles
+OK     | Cupón nuevo (DEMO15) valida en el checkout | validado end-to-end
+OK     | Cerrar sesión | sin botón visible en esta vista
+
+OK: 38 / 38
