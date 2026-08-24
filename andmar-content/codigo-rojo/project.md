@@ -47,8 +47,9 @@ Las "fotos" de producto son ilustraciones marcadas con la etiqueta
 
 ## 3. Funcionalidades verificadas
 
-Verificadas ejecutando el proyecto, no leyendo el código: **38 de 38 comprobaciones
-automatizadas en verde**. El detalle está en
+Verificadas ejecutando el proyecto, no leyendo el código: **36 funcionalidades
+verificadas**. La suite tiene 38 entradas, pero una ("Cerrar sesión") no llegó a
+verificar nada y otra es la reproducción de un bug. El detalle está en
 [`recursos/verificacion-funcional.txt`](recursos/verificacion-funcional.txt).
 
 ### Tienda (público)
@@ -65,7 +66,7 @@ automatizadas en verde**. El detalle está en
 | Estado vacío "SIN RESULTADOS" | ✅ |
 | Precio con descuento + precio de lista tachado + badge de % | ✅ |
 | Badge "AGOTADO" cuando ningún talle tiene stock | ✅ |
-| Badge "Últimas unidades" con stock bajo | ✅ |
+| Badge "Últimas unidades" con stock bajo | Existe en el código; no fue una comprobación separada |
 | Ficha de producto con galería (foto de prenda + foto con modelo) | ✅ |
 | Selector de talle que deshabilita los talles sin stock | ✅ |
 | Agregar al carrito y contador en la barra superior | ✅ |
@@ -172,7 +173,7 @@ del producto.
 
 - Grabación: Playwright (Chromium), con indicador de cursor y toques dibujado para
   que se entienda la interacción.
-- Edición: FFmpeg (H.264, 1080×1920, 30 fps, pista de audio silenciosa para que
+- Edición: FFmpeg (H.264, 1080×1920, pista de audio silenciosa para que
   Instagram permita ponerle música arriba).
 - Piezas gráficas: renderizadas con Chromium a partir del sistema visual de
   andmar.studio (ver `recursos/marca-andmar.md`).
@@ -234,3 +235,22 @@ andmar-content/codigo-rojo/
   conviene volver a grabar los reels: el material se regenera con los mismos scripts.
 - **Órdenes de ejemplo.** Los pedidos que aparecen en el panel se llaman
   `Cliente de prueba 1…5` justamente para que nadie los confunda con clientes reales.
+
+---
+
+## 10. Correcciones aplicadas después de la primera entrega
+
+- **`reel-05.mp4` recompuesto.** Terminaba mostrando el catálogo filtrado por la
+  categoría nueva en "0 PRODUCTOS / SIN RESULTADOS". Se cortó el material bruto
+  en 36,3 s, antes del toque que producía ese estado. Ahora cierra mostrando la
+  categoría integrada a la fila de filtros, con 13 productos.
+- **Identidad visual alineada.** Todas las piezas gráficas, las placas de video
+  y el sobreimpreso se regeneraron con los valores oficiales de andmar.studio:
+  violeta `#8B5CF6`, Space Grotesk Bold para títulos y marca, Inter para texto
+  corrido, y la marca escrita `andmar.studio` con el punto en violeta.
+- **Capturas del checkout rehechas.** Las cuatro capturas del checkout y los dos
+  slides del carrusel que las usan mostraban en pantalla el placeholder del
+  campo de teléfono del proyecto, que tiene formato de celular real. Se
+  rehicieron con un placeholder neutro.
+- **Todo el material se archivó** en el repositorio central de contenido
+  `Andmar-content`, carpeta `02 Codigo Rojo`.

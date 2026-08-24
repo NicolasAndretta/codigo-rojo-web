@@ -5,24 +5,28 @@ pieza nueva salga igual sin tener que adivinar valores.
 
 ## Color
 
+Los valores son los de `99 Marca andmar studio/Identidad.md` del repositorio
+central `Andmar-content`.
+
 | Token | Valor | Uso |
 |---|---|---|
-| Negro base | `#08080B` | Fondo de todas las piezas |
-| Negro superficie | `#101017` | Tarjetas, mockups |
-| Violeta primario | `#7C5CFF` | Acento principal |
-| Violeta claro | `#A78BFA` | Titulares destacados, iconos |
-| Violeta profundo | `#5B3FD9` | Degradados |
-| Blanco | `#F6F6F9` | Texto principal |
-| Gris texto | `#9A9AAA` | Texto secundario |
-| Línea | `rgba(255,255,255,.10)` | Bordes y grillas |
+| Fondo principal | `#08080B` | Fondo de todas las piezas |
+| Fondo alternativo | `#0C0A14` | Tarjetas, mockups |
+| Violeta (acento) | `#8B5CF6` | Acento principal y el punto de la marca |
+| Violeta claro | `#C4B5FD` | Titulares destacados, iconos |
+| Violeta oscuro | `#4C1D95` | Halos y degradados |
+| Texto principal | `#FFFFFF` | Texto principal |
+| Texto secundario | `#A1A1AA` | Texto de apoyo |
+| Texto tenue | `#52525B` | Detalles |
+| Línea | blanco al 8 % | Bordes y grillas |
 
 ## Tipografía
 
 | Rol | Fuente | Peso |
 |---|---|---|
-| Titulares | Inter | 900, `letter-spacing: -0.035em` |
-| Texto | Inter | 500 / 600 |
-| Etiquetas técnicas, marca | JetBrains Mono | 500 / 700, `letter-spacing: .16em–.30em` |
+| Títulos y la marca | Space Grotesk | 700, `letter-spacing: -0.025em` |
+| Texto corrido | Inter | 400 / 500 |
+| Etiquetas y rótulos | Inter | 600 / 700, `letter-spacing: .16em–.28em` |
 
 ## Recursos visuales fijos
 
@@ -30,7 +34,8 @@ pieza nueva salga igual sin tener que adivinar valores.
 - Grilla fina de 90 px con máscara radial.
 - Grano sutil (`feTurbulence`, `overlay`, opacidad .22).
 - Regla violeta de 88×4 px como separador antes del handle.
-- Marca: cuadrado violeta redondeado de 18 px + `andmar.studio` en monoespaciada.
+- Marca escrita: `andmar.studio` en minúsculas, Space Grotesk Bold, con el punto
+  en violeta `#8B5CF6`. Nunca en mayúsculas, nunca separada, sin isotipo.
 
 ## Formatos
 
@@ -38,7 +43,7 @@ pieza nueva salga igual sin tener que adivinar valores.
 |---|---|
 | Post de feed | 1080 × 1350 (4:5) |
 | Historia / Reel / Destacada | 1080 × 1920 (9:16) |
-| Video Reel | 1080 × 1920, H.264, 30 fps, pista de audio silenciosa |
+| Video Reel | 1080 × 1920, H.264, pista de audio silenciosa. Los reels 01 a 07 quedan a 25 fps y el hero y el 08 a 30 fps. |
 
 ## Nota sobre el logotipo
 
