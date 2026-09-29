@@ -17,9 +17,11 @@ import { sendOrderEmails } from "@/lib/resend/order-emails";
  * si `MP_WEBHOOK_SECRET` no está cargada y acá devolviéramos 401, NINGÚN pago
  * se confirmaría. Sería provocar exactamente el desastre que este archivo
  * intenta evitar, y encima en silencio. Así que sin secreto se deja pasar y se
- * avisa por log; con secreto se valida en serio. De esa forma cargar la
- * variable es un endurecimiento que se puede hacer cuando se quiera, sin
- * riesgo de cortar las ventas en el medio.
+ * avisa por log; con secreto se valida en serio.
+ *
+ * ⚠️ Cargarla SÍ tiene riesgo: con un secreto equivocado (o si MP no firmara
+ * estas notificaciones) se rechazan TODAS, y ningún pago se confirma. Por eso
+ * se carga el mismo día que se hace un pago real de prueba, nunca suelta.
  *
  * La defensa que YA existía sigue en pie igual: más abajo se vuelve a consultar
  * el pago contra la API de MP con el token del vendedor y se exige que esté
