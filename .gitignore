@@ -45,6 +45,13 @@ skills-lock.json
 CLAUDE.md
 AGENTS.md
 CONTEXTO-PARA-CONTINUAR.md
+# Este repo es PÚBLICO a propósito (decisión del 14/09/2026: el código es prueba
+# verificable del trabajo). CONTEXTO-NICO.md lo genera el script de sincronización
+# del universo y trae contexto personal — familia, metas, ingresos. Estaba sin
+# trackear pero tampoco ignorado, así que un `git add -A` lo publicaba.
+CONTEXTO-NICO.md
+# Volcados de crash de MSYS/Git Bash en Windows. Basura, nunca se versiona.
+*.stackdump
 
 # typescript
 *.tsbuildinfo
