@@ -15,7 +15,7 @@ E-commerce de streetwear argentino desarrollado como proyecto portfolio full-sta
 
 | Capa | Tecnología |
 |---|---|
-| Framework | Next.js 16 (App Router, React 19, Turbopack) |
+| Framework | Next.js 16.3 (App Router, React 19; el build usa webpack, ver `CLAUDE.md`) |
 | Lenguaje | TypeScript estricto |
 | Estilos | Tailwind CSS v4 (dark mode permanente) |
 | Base de datos | Supabase (PostgreSQL + PostgREST + RLS) |
