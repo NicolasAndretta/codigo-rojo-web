@@ -45,9 +45,16 @@
 -- El checkout de invitado NO se rompe: nunca dependió de estos permisos.
 -- ============================================================
 
--- 1. La función que marca pagado vuelve a ser solo del servidor.
-revoke execute on function public.mark_order_paid(bigint, text) from anon;
-revoke execute on function public.mark_order_paid(bigint, text) from authenticated;
+-- 1. Las funciones security definer que escriben vuelven a ser solo del servidor.
+--
+-- OJO con `public`: Postgres le concede EXECUTE a PUBLIC en toda función nueva,
+-- y anon hereda de PUBLIC. Sacárselo solo a anon no alcanza — seguiría pudiendo
+-- llamarla. Por eso redeem_coupon, que la 004 "concedió solo a service_role",
+-- también quedó abierta: nunca se le sacó el EXECUTE de PUBLIC.
+revoke execute on function public.mark_order_paid(bigint, text) from public, anon, authenticated;
+revoke execute on function public.redeem_coupon(bigint)         from public, anon, authenticated;
+grant  execute on function public.mark_order_paid(bigint, text) to service_role;
+grant  execute on function public.redeem_coupon(bigint)         to service_role;
 
 -- 2. Nadie inserta órdenes desde el navegador. Solo el service client.
 revoke insert on public.orders             from anon;
@@ -80,14 +87,27 @@ update storage.buckets
 -- ============================================================
 -- CÓMO COMPROBAR QUE QUEDÓ CERRADO
 --
--- Con la anon key del proyecto (la pública, la que está en el .env como
+-- Primero, sin tocar ningún dato, en el mismo SQL Editor. Todo tiene que dar false:
+--
+--   select
+--     has_function_privilege('anon', 'public.mark_order_paid(bigint, text)', 'execute') as anon_paga,
+--     has_function_privilege('authenticated', 'public.mark_order_paid(bigint, text)', 'execute') as auth_paga,
+--     has_function_privilege('anon', 'public.redeem_coupon(bigint)', 'execute') as anon_cupon,
+--     has_table_privilege('anon', 'public.orders', 'insert') as anon_orden,
+--     has_table_privilege('authenticated', 'public.orders', 'insert') as auth_orden,
+--     has_table_privilege('anon', 'public.order_items', 'insert') as anon_items;
+--
+-- ⚠️ Si alguno da true, NO correr los curl de abajo: con p_order_id de una orden
+-- real pendiente, el primero la marcaría pagada de verdad. Por eso usa -1.
+--
+-- Después, desde afuera, con la anon key del proyecto (la pública, la que está en el .env como
 -- NEXT_PUBLIC_SUPABASE_ANON_KEY), esto TIENE que devolver 401/403:
 --
 --   curl -X POST 'https://<proyecto>.supabase.co/rest/v1/rpc/mark_order_paid' \
 --     -H "apikey: <ANON_KEY>" \
 --     -H "Authorization: Bearer <ANON_KEY>" \
 --     -H "Content-Type: application/json" \
---     -d '{"p_order_id": 1, "p_payment_id": "prueba"}'
+--     -d '{"p_order_id": -1, "p_payment_id": "prueba"}'
 --
 -- Y esto también:
 --

@@ -68,5 +68,8 @@ $$;
 -- Igual que redeem_coupon y que mark_order_paid después de la 008: sólo el
 -- servidor. Esta función es security definer y saltea RLS, así que NUNCA va
 -- concedida a anon ni a authenticated.
-revoke execute on function public.mark_order_refunded(bigint) from public;
+-- `from public` es lo que importa (Postgres concede EXECUTE a PUBLIC en toda
+-- función nueva, ver 008). anon y authenticated van por las dudas: según cómo
+-- esté configurado el proyecto, Supabase también puede concedérselo por nombre.
+revoke execute on function public.mark_order_refunded(bigint) from public, anon, authenticated;
 grant execute on function public.mark_order_refunded(bigint) to service_role;
