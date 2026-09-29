@@ -56,6 +56,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // --- La URL del sitio, y la guardia que evita cobrar sin poder confirmar ---
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  // MP rechaza `auto_return` si back_urls.success no es una URL pública
+  // (con http/localhost devuelve 400 invalid_auto_return). En desarrollo
+  // local lo omitimos para poder probar el flujo de pago; en producción
+  // (dominio https público) se activa el retorno automático tras aprobar.
+  const isPublicUrl =
+    /^https:\/\//.test(siteUrl) && !/localhost|127\.0\.0\.1/.test(siteUrl);
+
+  // ⚠️ EL FALLO MÁS CARO Y MÁS SILENCIOSO DEL SISTEMA
+  //
+  // `siteUrl` alimenta el `notification_url`: la dirección a la que MercadoPago
+  // avisa que se pagó. Si NEXT_PUBLIC_SITE_URL no está cargada en el hosting, el
+  // `??` de arriba cae en localhost y el notification_url termina apuntando a
+  // http://localhost:3000, que MP no puede alcanzar desde internet.
+  //
+  // Lo que pasaba entonces: el cliente paga, la plata entra a la cuenta de MP, y
+  // la orden queda en 'pending' para siempre. El stock no se descuenta, no sale
+  // el mail de confirmación, y NO HAY NINGÚN ERROR EN NINGUNA PANTALLA. Se
+  // descubre cuando alguien reclama que pagó y no le llegó nada.
+  //
+  // Por eso en producción se corta ACÁ, antes de escribir la orden: fallar en el
+  // checkout se nota en el primer intento y nadie pierde plata. Seguir adelante
+  // con una URL inalcanzable es cobrar sin poder confirmar.
+  if (process.env.NODE_ENV === "production" && !isPublicUrl) {
+    console.error(
+      "[orders] NEXT_PUBLIC_SITE_URL no es una URL pública https " +
+        `(vale "${siteUrl}"). El webhook de MercadoPago sería inalcanzable y ningún ` +
+        "pago se confirmaría. Revisar la variable en el panel del hosting."
+    );
+    return NextResponse.json(
+      {
+        error:
+          "No podemos procesar el pago en este momento. Escribinos por WhatsApp y lo resolvemos.",
+      },
+      { status: 503 }
+    );
+  }
+
   // --- Traer datos reales de variantes y productos (NO confiar en el cliente) ---
   const variantIds = [...new Set(items.map((i) => i.variantId))];
   const { data: variants, error: variantsError } = await supabase
@@ -208,13 +247,6 @@ export async function POST(req: NextRequest) {
           currency_id: "ARS",
         }));
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  // MP rechaza `auto_return` si back_urls.success no es una URL pública
-  // (con http/localhost devuelve 400 invalid_auto_return). En desarrollo
-  // local lo omitimos para poder probar el flujo de pago; en producción
-  // (dominio https público) se activa el retorno automático tras aprobar.
-  const isPublicUrl =
-    /^https:\/\//.test(siteUrl) && !/localhost|127\.0\.0\.1/.test(siteUrl);
   try {
     const preference = await getPreferenceClient().create({
       body: {
@@ -243,6 +275,22 @@ export async function POST(req: NextRequest) {
     // No tragamos el error: queda en logs del server para diagnosticar
     // (credenciales, body inválido, MP caído, etc.).
     console.error("Error creando preferencia de MercadoPago:", err);
+
+    // Limpiar la orden que quedó colgada. Se insertó unas líneas más arriba,
+    // pero el cliente nunca llegó a ver un link de pago: no es una venta, es
+    // basura. Sin esto, /admin/ordenes se va llenando de pedidos en 'pending'
+    // que nunca existieron y Agustina no puede distinguir cuáles son reales.
+    // Best-effort: si la limpieza falla, el error que importa es el de arriba.
+    try {
+      await service.from("order_items").delete().eq("order_id", order.id);
+      await service.from("orders").delete().eq("id", order.id);
+    } catch (limpiezaErr) {
+      console.error(
+        `No se pudo limpiar la orden huérfana ${order.id}:`,
+        limpiezaErr
+      );
+    }
+
     return NextResponse.json(
       { error: "No se pudo iniciar el pago. Intentá de nuevo." },
       { status: 502 }

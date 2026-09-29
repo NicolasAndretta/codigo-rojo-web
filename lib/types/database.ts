@@ -325,6 +325,11 @@ export type Database = {
         Args: { p_order_id: number; p_payment_id: string };
         Returns: boolean;
       };
+      /** true si revirtió; false si la orden ya no estaba en 'paid'. */
+      mark_order_refunded: {
+        Args: { p_order_id: number };
+        Returns: boolean;
+      };
       validate_coupon: {
         Args: { p_code: string };
         Returns: {
