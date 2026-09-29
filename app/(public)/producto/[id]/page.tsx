@@ -13,17 +13,32 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const supabase = await createClient();
+  // Solo productos activos: antes esto devolvía el nombre de un producto oculto
+  // a cualquiera que probara su número en la URL.
   const { data } = await supabase
     .from("products")
-    .select("name, description")
+    .select("name, description, images")
     .eq("id", Number(id))
-    .single<{ name: string; description: string | null }>();
+    .eq("is_active", true)
+    .single<{ name: string; description: string | null; images: string[] | null }>();
 
   if (!data) return { title: "Producto no encontrado" };
 
+  const descripcion = data.description ?? `${data.name}. Streetwear argentino en Código Rojo.`;
+  // La foto de la prenda es lo que se ve cuando alguien comparte el link por
+  // WhatsApp o Instagram. Sin foto, queda la imagen general de la marca.
+  const foto = (data.images ?? []).find(Boolean);
+
   return {
     title: `${data.name} | Código Rojo`,
-    description: data.description ?? undefined,
+    description: descripcion,
+    alternates: { canonical: `/producto/${id}` },
+    openGraph: {
+      title: `${data.name} | Código Rojo`,
+      description: descripcion,
+      url: `/producto/${id}`,
+      ...(foto ? { images: [{ url: foto, alt: data.name }] } : {}),
+    },
   };
 }
 
