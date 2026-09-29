@@ -39,10 +39,11 @@ export default function AdminNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Cerrar el drawer al cambiar de ruta.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  // El drawer se cierra en el onClick de cada link, no en un efecto que mire
+  // `pathname`. Cerrar desde un efecto es reaccionar a un cambio que ya provocó
+  // un render — React lo desaconseja y el linter lo marca (react-hooks/
+  // set-state-in-effect). Cerrarlo donde ocurre la navegación es directo y no
+  // encadena renders.
 
   // Bloquear el scroll del body y cerrar con Escape mientras está abierto.
   useEffect(() => {
@@ -143,6 +144,7 @@ export default function AdminNav() {
                 <Link
                   key={href}
                   href={href}
+                  onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-4 py-3 text-[15px] font-medium transition-colors ${
                     active
                       ? "border-l-2 border-red-600 bg-red-950/30 text-red-400"

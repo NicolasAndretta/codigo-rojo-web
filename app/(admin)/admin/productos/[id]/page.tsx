@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import {
   updateProduct,
@@ -11,6 +11,7 @@ import {
   toggleProductActive,
 } from "@/lib/admin/actions";
 import CategorySelect from "@/components/admin/CategorySelect";
+import SubirFoto from "@/components/admin/SubirFoto";
 import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
 import { totalStock as sumStock } from "@/lib/utils/stock";
 import type { Category, Product, ProductVariant, ProductSize } from "@/lib/types/database";
@@ -254,39 +255,25 @@ function PhotoSlot({
       {url ? (
         <div className="group relative aspect-[3/4] overflow-hidden rounded-lg border border-neutral-700">
           <Image src={url} alt={title} fill className="object-cover" sizes="200px" />
-          <form
+          <SavingForm
             action={removeProductImage.bind(null, productId, slot)}
+            successMessage={`${title} eliminada`}
             className="absolute right-2 top-2"
           >
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="…"
+              ariaLabel={`Eliminar ${title}`}
               className="flex h-7 w-7 items-center justify-center rounded bg-neutral-950/80 text-red-400 transition-colors hover:bg-red-950 hover:text-red-300"
-              aria-label={`Eliminar ${title}`}
             >
               <Trash2 size={14} />
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
         </div>
       ) : (
-        <form
+        <SubirFoto
           action={uploadProductImage.bind(null, productId, slot)}
-          className="flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-neutral-700 p-4 text-center"
-        >
-          <Upload size={22} className="text-neutral-500" />
-          <input
-            name="image"
-            type="file"
-            accept="image/*"
-            required
-            className="block w-full text-xs text-neutral-400 file:mr-2 file:rounded file:border-0 file:bg-neutral-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-neutral-200 hover:file:bg-neutral-700"
-          />
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-red-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-red-700"
-          >
-            Subir foto
-          </button>
-        </form>
+          titulo={title}
+        />
       )}
     </div>
   );

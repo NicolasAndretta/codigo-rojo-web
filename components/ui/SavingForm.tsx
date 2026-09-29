@@ -77,10 +77,13 @@ export function SubmitButton({
   children,
   pendingLabel = "Guardando…",
   className = "",
+  ariaLabel,
 }: {
   children: React.ReactNode;
   pendingLabel?: string;
   className?: string;
+  /** Para botones que son solo un ícono y no tienen texto propio. */
+  ariaLabel?: string;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -88,6 +91,7 @@ export function SubmitButton({
       type="submit"
       disabled={pending}
       aria-busy={pending}
+      aria-label={ariaLabel}
       className={`${className} ${pending ? "cursor-wait opacity-70" : ""}`}
     >
       {pending ? pendingLabel : children}
