@@ -10,6 +10,7 @@ import {
   Store,
   FolderTree,
   Tag,
+  CreditCard,
   Menu,
   X,
   type LucideIcon,
@@ -28,6 +29,7 @@ const LINKS: NavLink[] = [
   { href: "/admin/categorias", label: "Categorías", icon: FolderTree },
   { href: "/admin/descuentos", label: "Descuentos", icon: Tag },
   { href: "/admin/ordenes", label: "Órdenes", icon: ClipboardList },
+  { href: "/admin/cobros", label: "Cobros", icon: CreditCard },
   { href: "/catalogo", label: "Ver tienda", icon: Store, muted: true },
 ];
 

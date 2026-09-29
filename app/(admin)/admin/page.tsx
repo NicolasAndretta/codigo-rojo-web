@@ -1,6 +1,22 @@
 import Link from "next/link";
-import { Package, ClipboardList, AlertTriangle } from "lucide-react";
+import { Package, ClipboardList, AlertTriangle, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { AVISAR_ANTES_DIAS, estadoConexion } from "@/lib/mercadopago/conexion";
+
+// Lo primero que ve Agustina al entrar: si la tienda no puede cobrar, tiene
+// que saltar a la vista acá, no descubrirse cuando un cliente no puede pagar.
+async function avisoDeCobros(): Promise<string | null> {
+  try {
+    const estado = await estadoConexion();
+    if (!estado.conectada) return "Mercado Pago sin conectar: la tienda todavía no puede cobrar.";
+    if (estado.diasRestantes !== null && estado.diasRestantes <= AVISAR_ANTES_DIAS) {
+      return `La conexión con Mercado Pago vence en ${Math.max(estado.diasRestantes, 0)} días.`;
+    }
+    return null;
+  } catch {
+    return "No se pudo revisar la conexión con Mercado Pago.";
+  }
+}
 
 export const metadata = { title: "Admin | Código Rojo" };
 
@@ -20,9 +36,22 @@ export default async function AdminDashboard() {
         .in("status", ["preparing", "shipped"]),
     ]);
 
+  const aviso = await avisoDeCobros();
+
   return (
     <div>
       <h1 className="mb-8 font-display text-4xl tracking-widest">PANEL</h1>
+
+      {aviso && (
+        <Link
+          href="/admin/cobros"
+          className="mb-6 flex items-center gap-3 rounded-lg border border-amber-800 bg-amber-950/40 p-4 text-sm text-amber-300 transition-colors hover:bg-amber-950/70"
+        >
+          <CreditCard size={18} className="shrink-0" />
+          <span className="flex-1">{aviso}</span>
+          <span className="shrink-0 font-bold">Ir a Cobros →</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link

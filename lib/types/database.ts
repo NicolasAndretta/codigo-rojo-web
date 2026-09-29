@@ -314,6 +314,40 @@ export type Database = {
           }
         ];
       };
+      /** Migración 010. Solo el servidor (service role) la lee: tiene el token de la tienda. */
+      mp_conexion: {
+        Row: {
+          id: number;
+          mp_user_id: string;
+          mp_nickname: string | null;
+          mp_email: string | null;
+          access_token: string;
+          refresh_token: string | null;
+          expires_at: string | null;
+          conectada_el: string;
+          actualizada_el: string;
+        };
+        Insert: {
+          id?: number;
+          mp_user_id: string;
+          mp_nickname?: string | null;
+          mp_email?: string | null;
+          access_token: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
+          conectada_el?: string;
+          actualizada_el?: string;
+        };
+        Update: {
+          mp_nickname?: string | null;
+          mp_email?: string | null;
+          access_token?: string;
+          refresh_token?: string | null;
+          expires_at?: string | null;
+          actualizada_el?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

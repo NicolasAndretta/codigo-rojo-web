@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "firma inválida" }, { status: 401 });
     }
 
-    const payment = await getPaymentClient().get({ id: String(paymentId) });
+    const payment = await (await getPaymentClient()).get({ id: String(paymentId) });
 
     if (!payment.external_reference) {
       return NextResponse.json({ ok: true });

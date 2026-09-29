@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
         }));
 
   try {
-    const preference = await getPreferenceClient().create({
+    const preference = await (await getPreferenceClient()).create({
       body: {
         items: mpItems,
         external_reference: String(order.id),
