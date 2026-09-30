@@ -1,0 +1,58 @@
+[
+ {
+  "key": "empolvado",
+  "nombre": "Empolvado",
+  "rosa": "#F1CFD2",
+  "cordon": "#D49BA1",
+  "linea": "Rosa apenas insinuado. Elegante y fácil de combinar."
+ },
+ {
+  "key": "nude",
+  "nombre": "Nude",
+  "rosa": "#F0CBBB",
+  "cordon": "#D2987F",
+  "linea": "Rosado tirando a piel. Sobrio, bien de moda."
+ },
+ {
+  "key": "cuarzo",
+  "nombre": "Cuarzo",
+  "rosa": "#F3C1D1",
+  "cordon": "#D38DA4",
+  "linea": "El más parecido al de antes, pero sin pelear con el rojo."
+ },
+ {
+  "key": "blush",
+  "nombre": "Blush",
+  "rosa": "#F4AFB6",
+  "cordon": "#D47A86",
+  "linea": "Rosa rubor: se nota rosa sin gritar."
+ },
+ {
+  "key": "viejo",
+  "nombre": "Rosa viejo",
+  "rosa": "#D09AA0",
+  "cordon": "#B16771",
+  "linea": "Apagado y con carácter. Queda muy bien con el negro."
+ },
+ {
+  "key": "coral",
+  "nombre": "Coral",
+  "rosa": "#F99F90",
+  "cordon": "#D76A5A",
+  "linea": "Cálido, tirando a salmón. Tono sobre tono con el rojo."
+ },
+ {
+  "key": "frutilla",
+  "nombre": "Frutilla",
+  "rosa": "#F98F9A",
+  "cordon": "#D5586A",
+  "linea": "Rosa vivo y cálido. Más juvenil."
+ },
+ {
+  "key": "fuerte",
+  "nombre": "Rosa fuerte",
+  "rosa": "#F06C8F",
+  "cordon": "#CA2C63",
+  "linea": "El de más onda. Ojo: sobre este rosa, las letras rojas se leen menos."
+ }
+]

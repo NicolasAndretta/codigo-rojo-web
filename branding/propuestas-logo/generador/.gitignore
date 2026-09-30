@@ -1,2 +1,4 @@
 node_modules/
 salida-hd/
+bordado/salida/
+__pycache__/

@@ -1,0 +1,7 @@
+{
+  "canvas": { "width": 1000, "height": 1000, "scale": 2 },
+  "elements": [
+    { "name": "wm", "kind": "wordmark", "cx": 500, "baseline": 522, "width": 540 },
+    { "name": "tag", "kind": "text", "font": "bc600", "str": "TU ESTILO, BAJO CONTROL.", "size": 34, "cx": 500, "baseline": 580, "tracking": 2.2 }
+  ]
+}
