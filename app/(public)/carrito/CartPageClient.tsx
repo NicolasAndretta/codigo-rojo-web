@@ -125,7 +125,7 @@ export default function CartPageClient() {
 
             <div className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between text-neutral-400">
-                <span>Subtotal ({totalItems} items)</span>
+                <span>Subtotal ({totalItems} {totalItems === 1 ? "producto" : "productos"})</span>
                 <span>{formatPrice(totalPrice)}</span>
               </div>
               <div className="flex justify-between text-neutral-400">

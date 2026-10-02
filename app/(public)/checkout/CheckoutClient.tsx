@@ -328,7 +328,7 @@ export default function CheckoutClient() {
 
               <div className="flex flex-col gap-2 border-t border-neutral-700 pt-3 text-sm">
                 <div className="flex justify-between text-neutral-400">
-                  <span>Subtotal ({totalItems} items)</span>
+                  <span>Subtotal ({totalItems} {totalItems === 1 ? "producto" : "productos"})</span>
                   <span>{formatPrice(totalPrice)}</span>
                 </div>
                 {couponOff > 0 && (
