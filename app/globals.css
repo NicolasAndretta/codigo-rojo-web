@@ -36,10 +36,16 @@ body::before {
     radial-gradient(40% 30% at 100% 0%, rgba(220, 38, 38, 0.05), transparent 60%);
 }
 
-/* El contenido va por encima del glow */
-body > * {
-  position: relative;
-  z-index: 1;
+/* El contenido va por encima del glow.
+   Va en la capa base A PROPÓSITO: una regla sin capa le gana a cualquier clase
+   de Tailwind, y esta pisaba el `fixed` del botón de WhatsApp, el `sticky` del
+   menú y el `fixed` de los avisos del panel (los tres cuelgan directo del body):
+   el botón y los avisos quedaban al final de la página, fuera de la vista. */
+@layer base {
+  body > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 /* Headings display: kerning urbano */
