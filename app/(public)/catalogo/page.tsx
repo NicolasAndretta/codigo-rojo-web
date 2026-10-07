@@ -14,6 +14,9 @@ type SearchParams = {
 
 export const metadata = {
   title: "Catálogo | Código Rojo",
+  description:
+    "Remeras, buzos, jeans, joggins y conjuntos. Streetwear argentino con identidad, diseños limitados.",
+  alternates: { canonical: "/catalogo" },
 };
 
 export default async function CatalogoPage({

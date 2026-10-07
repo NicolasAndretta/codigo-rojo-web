@@ -57,15 +57,22 @@ export default function ProductCard({ product, price }: Props) {
           </div>
         )}
 
-        {/* Badge de descuento (arriba izquierda) */}
-        {hasStock && price.hasDiscount && (
-          <span className="absolute left-3 top-3">
-            <DiscountBadge percentOff={price.percentOff} />
-          </span>
+        {/* Carteles de arriba: descuento y "Últimas unidades", en una sola fila
+            que baja de renglón si no entra. Antes iban anclados uno a cada
+            costado, y en celular, con la tarjeta angosta, se pisaban. */}
+        {hasStock && (price.hasDiscount || lowStock) && (
+          <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start gap-1.5">
+            {price.hasDiscount && <DiscountBadge percentOff={price.percentOff} />}
+            {lowStock && (
+              <span className="rounded-full bg-neutral-950/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-200 backdrop-blur-sm">
+                Últimas unidades
+              </span>
+            )}
+          </div>
         )}
 
-        {/* Estado de stock */}
-        {soldOut ? (
+        {/* Agotado */}
+        {soldOut && (
           <>
             {/* Capa que apaga la tarjeta */}
             <div className="absolute inset-0 bg-neutral-950/55" />
@@ -76,11 +83,7 @@ export default function ProductCard({ product, price }: Props) {
               </span>
             </div>
           </>
-        ) : lowStock ? (
-          <span className="absolute right-3 top-3 rounded-full bg-neutral-950/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-200 backdrop-blur-sm">
-            Últimas unidades
-          </span>
-        ) : null}
+        )}
       </div>
 
       {/* Info */}
