@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { conciliar } from "@/lib/mercadopago/conciliar";
+import { diagnosticoIP } from "@/lib/limite";
 
 // ============================================================
 // Conciliación de pagos, para que la llame UptimeRobot cada 5 minutos.
@@ -44,6 +45,11 @@ export async function GET(req: NextRequest) {
   }
   if (!claveValida(req.nextUrl.searchParams.get("clave"))) {
     return NextResponse.json({ ok: false }, { status: 401 });
+  }
+
+  // Diagnóstico para configurar IP_SALTOS_PROXY (ver lib/limite.ts). No concilia.
+  if (req.nextUrl.searchParams.get("diag") === "ip") {
+    return NextResponse.json({ ok: true, ip: diagnosticoIP(req) });
   }
 
   try {
