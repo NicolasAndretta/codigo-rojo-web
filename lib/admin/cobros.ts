@@ -88,6 +88,21 @@ export async function confirmarTransferencia(orderId: number) {
   revalidatePath("/admin/ordenes");
 }
 
+// ---------- Botón de arrepentimiento (migración 013) ----------
+
+export async function marcarArrepentimientoResuelto(id: number) {
+  await soloAdmin();
+  const { error } = await createServiceClient()
+    .from("arrepentimientos")
+    .update({ estado: "resuelto", resuelto_el: new Date().toISOString() })
+    .eq("id", id);
+  if (error) {
+    console.error("[arrepentimiento] No se pudo marcar resuelto:", error.message);
+    throw new Error("No se pudo guardar. Probá de nuevo.");
+  }
+  revalidatePath("/admin/arrepentimientos");
+}
+
 export async function cancelarPedidoReservado(orderId: number) {
   await soloAdmin();
   const ok = await cancelarReserva(orderId);

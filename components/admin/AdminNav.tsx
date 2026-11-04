@@ -11,6 +11,7 @@ import {
   FolderTree,
   Tag,
   CreditCard,
+  Undo2,
   Menu,
   X,
   type LucideIcon,
@@ -30,6 +31,7 @@ const LINKS: NavLink[] = [
   { href: "/admin/descuentos", label: "Descuentos", icon: Tag },
   { href: "/admin/ordenes", label: "Órdenes", icon: ClipboardList },
   { href: "/admin/cobros", label: "Cobros", icon: CreditCard },
+  { href: "/admin/arrepentimientos", label: "Arrepentimientos", icon: Undo2 },
   { href: "/catalogo", label: "Ver tienda", icon: Store, muted: true },
 ];
 

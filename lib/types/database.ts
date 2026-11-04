@@ -332,6 +332,33 @@ export type Database = {
         ];
       };
       /** Migración 010. Solo el servidor (service role) la lee: tiene el token de la tienda. */
+      arrepentimientos: {
+        Row: {
+          id: number;
+          codigo: string;
+          nombre: string;
+          telefono: string;
+          email: string | null;
+          numero_pedido: string | null;
+          motivo: string | null;
+          estado: "nuevo" | "resuelto";
+          creado_el: string;
+          resuelto_el: string | null;
+        };
+        Insert: {
+          codigo: string;
+          nombre: string;
+          telefono: string;
+          email?: string | null;
+          numero_pedido?: string | null;
+          motivo?: string | null;
+        };
+        Update: {
+          estado?: "nuevo" | "resuelto";
+          resuelto_el?: string | null;
+        };
+        Relationships: [];
+      };
       tienda_config: {
         Row: {
           id: number;
@@ -469,6 +496,7 @@ export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 export type ShippingAddress = Database["public"]["Tables"]["shipping_addresses"]["Row"];
 export type Discount = Database["public"]["Tables"]["discounts"]["Row"];
+export type Arrepentimiento = Database["public"]["Tables"]["arrepentimientos"]["Row"];
 export type TiendaConfig = Database["public"]["Tables"]["tienda_config"]["Row"];
 
 /** Cómo se paga un pedido (migración 012). */

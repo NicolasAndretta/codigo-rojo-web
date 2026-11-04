@@ -49,6 +49,15 @@ export default async function PublicLayout({
             @codigorojo.ind
           </a>
         </p>
+        {/* Resolución 424/2020: tiene que estar a la vista en toda la tienda. */}
+        <p className="mt-3 text-sm">
+          <a
+            href="/arrepentimiento"
+            className="text-neutral-400 underline underline-offset-4 hover:text-red-500 transition-colors"
+          >
+            Botón de arrepentimiento
+          </a>
+        </p>
       </footer>
     </CartProvider>
   );
