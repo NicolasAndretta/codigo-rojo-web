@@ -21,8 +21,16 @@ import { conciliar } from "@/lib/mercadopago/conciliar";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function claveValida(recibida: string | null): boolean {
-  const esperada = process.env.CONCILIAR_CLAVE;
+// Sin espacios de los costados: al copiar la clave de la terminal al hPanel se
+// puede colar un espacio o un salto de línea, y la clave "correcta" daba 401
+// (pasó el 04/11/2026).
+function claveConfigurada(): string {
+  return (process.env.CONCILIAR_CLAVE ?? "").trim();
+}
+
+function claveValida(recibidaCruda: string | null): boolean {
+  const esperada = claveConfigurada();
+  const recibida = (recibidaCruda ?? "").trim();
   if (!esperada || !recibida) return false;
   // Comparación en tiempo constante, sobre hashes para que el largo no importe.
   const a = crypto.createHash("sha256").update(esperada).digest();
@@ -31,7 +39,7 @@ function claveValida(recibida: string | null): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  if (!process.env.CONCILIAR_CLAVE) {
+  if (!claveConfigurada()) {
     return NextResponse.json({ ok: false, error: "no-configurada" }, { status: 503 });
   }
   if (!claveValida(req.nextUrl.searchParams.get("clave"))) {
