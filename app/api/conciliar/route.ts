@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
       confirmadas: r.confirmadas.length,
       a_revisar: r.aRevisar.length,
       errores: r.errores,
+      vencidas: r.vencidas,
     });
   } catch (err) {
     console.error("[conciliar] Falló la corrida:", err);

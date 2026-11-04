@@ -6,16 +6,17 @@ import Link from "next/link";
 import { ShoppingBag, ArrowLeft, MessageCircle, Truck, Store, ShieldCheck } from "lucide-react";
 import type { ProductWithVariants, ProductVariant } from "@/lib/types/database";
 import type { PriceResult } from "@/lib/discounts/pricing";
-import { formatWhatsAppUrl } from "@/lib/utils/format";
+import { formatPrice, formatWhatsAppUrl } from "@/lib/utils/format";
 import { useCart } from "@/lib/hooks/useCart";
-import PriceTag, { DiscountBadge } from "@/components/catalog/PriceTag";
+import PriceTag, { DiscountBadge, type PrecioTransferenciaTag } from "@/components/catalog/PriceTag";
 
 type Props = {
   product: ProductWithVariants;
   price: PriceResult;
+  transfer?: PrecioTransferenciaTag | null;
 };
 
-export default function ProductDetail({ product, price }: Props) {
+export default function ProductDetail({ product, price, transfer }: Props) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
@@ -38,6 +39,7 @@ export default function ProductDetail({ product, price }: Props) {
       name: product.name,
       size: selectedVariant.size,
       price: price.final, // precio con descuento aplicado
+      ...(transfer ? { priceTransfer: transfer.precio } : {}),
       image: images[0] ?? null,
     });
     setAdded(true);
@@ -120,9 +122,15 @@ export default function ProductDetail({ product, price }: Props) {
           </h1>
 
           <div className="flex items-center gap-3">
-            <PriceTag price={price} size="lg" />
+            <PriceTag price={price} size="lg" transfer={transfer} />
             {price.hasDiscount && <DiscountBadge percentOff={price.percentOff} />}
           </div>
+          {transfer && transfer.precio < price.final && (
+            <p className="-mt-2 text-sm text-neutral-400">
+              Con Mercado Pago: <span className="text-neutral-200">{formatPrice(price.final)}</span>
+              {" "}(tarjeta, débito o dinero en cuenta)
+            </p>
+          )}
 
           {product.description && (
             <p className="text-sm leading-relaxed text-neutral-400">

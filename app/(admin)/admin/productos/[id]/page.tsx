@@ -143,6 +143,28 @@ export default async function EditarProductoPage({
                 <CategorySelect categories={categories} defaultValue={product.category_id} />
               </div>
             </div>
+            {/* Solo si ya se corrió la migración 012 (si no, la columna no existe
+                y guardar el producto fallaría). */}
+            {"precio_transferencia" in product && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
+                  Precio por transferencia (opcional)
+                </label>
+                <input
+                  name="precio_transferencia"
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={product.precio_transferencia ?? ""}
+                  placeholder="Vacío = se calcula con el % de Cobros"
+                  className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-neutral-500">
+                  Si lo cargás, este es el precio pagando por transferencia o efectivo. Si lo dejás vacío, se usa
+                  el descuento general que pusiste en Cobros.
+                </p>
+              </div>
+            )}
             <SubmitButton className="mt-1 self-start rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors">
               Guardar detalles
             </SubmitButton>

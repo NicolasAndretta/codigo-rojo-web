@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import type { ProductWithVariants } from "@/lib/types/database";
 import { fetchActiveDiscounts } from "@/lib/discounts/server";
 import { effectivePrice } from "@/lib/discounts/pricing";
+import { leerConfigPagos } from "@/lib/pagos/config";
+import { etiquetaTransferencia } from "@/lib/pagos/precios";
 import ProductDetail from "./ProductDetail";
 
 type Props = {
@@ -64,8 +66,12 @@ export default async function ProductoPage({ params }: Props) {
     ),
   };
 
-  const discounts = await fetchActiveDiscounts(supabase);
+  const [discounts, configPagos] = await Promise.all([
+    fetchActiveDiscounts(supabase),
+    leerConfigPagos(supabase),
+  ]);
   const price = effectivePrice(sorted, discounts, sorted.id);
+  const transfer = etiquetaTransferencia(price.final, sorted.precio_transferencia, configPagos);
 
-  return <ProductDetail product={sorted} price={price} />;
+  return <ProductDetail product={sorted} price={price} transfer={transfer} />;
 }

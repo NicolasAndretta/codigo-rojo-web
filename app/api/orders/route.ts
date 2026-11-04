@@ -5,10 +5,17 @@ import { getPreferenceClient } from "@/lib/mercadopago/client";
 import { fetchActiveDiscounts, validateCoupon, couponAmountOff } from "@/lib/discounts/server";
 import { effectivePrice } from "@/lib/discounts/pricing";
 import type { CartItem } from "@/lib/hooks/useCart";
-import type { Database, DeliveryPoint } from "@/lib/types/database";
+import type { Database, DeliveryPoint, MedioPago } from "@/lib/types/database";
 import { DEMASIADOS_INTENTOS, ipDe, permitir } from "@/lib/limite";
+import { leerConfigPagos } from "@/lib/pagos/config";
+import { precioTransferencia, sena } from "@/lib/pagos/precios";
+import { sendPedidoTransferenciaEmails } from "@/lib/resend/order-emails";
+
+const MEDIOS: MedioPago[] = ["mercadopago", "transferencia", "efectivo"];
 
 type OrderBody = {
+  /** Cómo paga. Sin esto, Mercado Pago (como siempre). */
+  medio_pago?: MedioPago;
   items: Pick<CartItem, "productId" | "variantId" | "quantity">[];
   delivery_point: DeliveryPoint;
   customer: {
@@ -22,7 +29,14 @@ type OrderBody = {
 };
 
 type VariantRow = { id: number; stock: number; size: string; product_id: number };
-type ProductRow = { id: number; name: string; price: number; category_id: number | null };
+type ProductRow = {
+  id: number;
+  name: string;
+  price: number;
+  category_id: number | null;
+  /** Migración 012. undefined si todavía no se corrió. */
+  precio_transferencia?: number | null;
+};
 
 const DELIVERY_POINTS: DeliveryPoint[] = ["haedo", "ramos_mejia", "domicilio"];
 
@@ -42,10 +56,14 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json()) as OrderBody;
   const { items, delivery_point, customer, delivery_address, delivery_notes, coupon_code } = body;
+  const medio: MedioPago = body.medio_pago ?? "mercadopago";
 
   // --- Validaciones de entrada ---
   if (!items?.length) {
     return NextResponse.json({ error: "El carrito está vacío" }, { status: 400 });
+  }
+  if (!MEDIOS.includes(medio)) {
+    return NextResponse.json({ error: "Medio de pago inválido" }, { status: 400 });
   }
   if (!DELIVERY_POINTS.includes(delivery_point)) {
     return NextResponse.json({ error: "Punto de entrega inválido" }, { status: 400 });
@@ -87,7 +105,8 @@ export async function POST(req: NextRequest) {
   // Por eso en producción se corta ACÁ, antes de escribir la orden: fallar en el
   // checkout se nota en el primer intento y nadie pierde plata. Seguir adelante
   // con una URL inalcanzable es cobrar sin poder confirmar.
-  if (process.env.NODE_ENV === "production" && !isPublicUrl) {
+  // (Solo aplica a Mercado Pago: una transferencia no depende del webhook.)
+  if (medio === "mercadopago" && process.env.NODE_ENV === "production" && !isPublicUrl) {
     console.error(
       "[orders] NEXT_PUBLIC_SITE_URL no es una URL pública https " +
         `(vale "${siteUrl}"). El webhook de MercadoPago sería inalcanzable y ningún ` +
@@ -114,10 +133,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Error verificando stock" }, { status: 500 });
   }
 
+  // --- Transferencia / efectivo: ¿está habilitado? ---
+  const config = await leerConfigPagos(supabase);
+  const pagoManual = medio !== "mercadopago";
+  if (medio === "transferencia" && !config.transferenciaActiva) {
+    return NextResponse.json(
+      { error: "El pago por transferencia no está disponible ahora. Elegí otro medio." },
+      { status: 409 }
+    );
+  }
+  if (medio === "efectivo") {
+    if (!config.efectivoActivo) {
+      return NextResponse.json(
+        { error: "El pago en efectivo no está disponible ahora. Elegí otro medio." },
+        { status: 409 }
+      );
+    }
+    // El resto se paga en mano al retirar: con envío a domicilio no hay retiro.
+    if (delivery_point === "domicilio") {
+      return NextResponse.json(
+        { error: "El efectivo es solo para retirar en Haedo o Ramos Mejía." },
+        { status: 400 }
+      );
+    }
+  }
+
   const productIds = [...new Set(variants.map((v) => v.product_id))];
+  // "*" y no la lista de columnas: precio_transferencia es de la migración 012,
+  // y pedirla por nombre antes de correrla rompería TODAS las compras.
   const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, name, price, category_id")
+    .select("*")
     .in("id", productIds)
     .eq("is_active", true)
     .returns<ProductRow[]>();
@@ -160,7 +206,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const unitPrice = effectivePrice(product, discounts, product.id).final;
+    const precioMP = effectivePrice(product, discounts, product.id).final;
+    const unitPrice = pagoManual
+      ? precioTransferencia(precioMP, product.precio_transferencia, config)
+      : precioMP;
     priced.push({
       productId: product.id,
       variantId: variant.id,
@@ -204,13 +253,22 @@ export async function POST(req: NextRequest) {
     customer_phone: customer.phone.trim(),
     customer_email: customer.email?.trim() || null,
     coupon_discount_id: couponDiscountId,
+    // Las columnas de la 012 van SOLO en pedidos por transferencia: así una
+    // compra con Mercado Pago no depende de que la migración esté corrida.
+    ...(pagoManual
+      ? {
+          medio_pago: medio,
+          monto_a_transferir: medio === "efectivo" ? sena(total, config) : total,
+          vence_el: new Date(Date.now() + config.horasParaPagar * 60 * 60 * 1000).toISOString(),
+        }
+      : {}),
   };
 
   const { data: order, error: orderError } = await service
     .from("orders")
     .insert(orderInsert)
-    .select("id")
-    .single<{ id: number }>();
+    .select(pagoManual ? "id, token_publico" : "id")
+    .single<{ id: number; token_publico?: string }>();
 
   if (orderError || !order) {
     return NextResponse.json({ error: "No se pudo crear la orden" }, { status: 500 });
@@ -229,6 +287,35 @@ export async function POST(req: NextRequest) {
   const { error: itemsError } = await service.from("order_items").insert(orderItems);
   if (itemsError) {
     return NextResponse.json({ error: "Error guardando los productos del pedido" }, { status: 500 });
+  }
+
+  // --- Transferencia / efectivo: reservar las prendas y listo ---
+  // Sin Mercado Pago no hay preferencia ni webhook: el pedido queda pendiente
+  // con las prendas apartadas hasta que Agustina confirme que le llegó la
+  // plata, o hasta que venza (lo cancela la conciliación y devuelve el stock).
+  if (pagoManual) {
+    const { data: reservado, error: reservaError } = await service.rpc("reservar_stock", {
+      p_order_id: order.id,
+    });
+    if (reservaError || !reservado) {
+      // Sin reserva no es un pedido: se borra (los ítems se van en cascada).
+      await service.from("orders").delete().eq("id", order.id);
+      if (reservaError) {
+        console.error(`[orders] No se pudo reservar el stock de la orden ${order.id}:`, reservaError.message);
+        return NextResponse.json({ error: "No se pudo crear el pedido. Probá de nuevo." }, { status: 500 });
+      }
+      // Alguien se llevó la última unidad entre que armaste el carrito y ahora.
+      return NextResponse.json(
+        { error: "Una de las prendas se acaba de agotar. Revisá tu carrito." },
+        { status: 409 }
+      );
+    }
+
+    await sendPedidoTransferenciaEmails(order.id);
+    return NextResponse.json({
+      order_id: order.id,
+      pago_url: `/checkout/transferencia/${order.token_publico}`,
+    });
   }
 
   // --- Preference de MercadoPago (Checkout Pro: tarjeta, débito, efectivo) ---

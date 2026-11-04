@@ -7,7 +7,11 @@ import { useCart } from "@/lib/hooks/useCart";
 import { formatPrice } from "@/lib/utils/format";
 
 export default function CartPageClient() {
-  const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
+  const { items, hydrated, totalItems, totalPrice, updateQuantity, removeItem, clearCart } = useCart();
+
+  // Hasta leer el carrito guardado no se muestra nada: si no, al recargar
+  // aparecía un instante "tu carrito está vacío" aunque tuviera cosas.
+  if (!hydrated) return null;
 
   if (items.length === 0) {
     return (

@@ -40,6 +40,8 @@ export type ResumenConciliacion = {
   /** Pagadas en MP pero con un monto que no coincide: NO se confirmaron. */
   aRevisar: number[];
   errores: number;
+  /** Pedidos por transferencia que pasaron el plazo y se cancelaron (migración 012). */
+  vencidas: number;
   motivo?: string;
 };
 
@@ -75,7 +77,21 @@ async function correr(): Promise<ResumenConciliacion> {
     confirmadas: [],
     aRevisar: [],
     errores: 0,
+    vencidas: 0,
   };
+
+  // Primero, y aunque MP esté desconectado: los pedidos por transferencia que
+  // pasaron el plazo sin pagar se cancelan y las prendas vuelven al stock.
+  // Si la migración 012 todavía no se corrió, la función no existe: se ignora.
+  const { data: vencidas, error: errorVencer } = await createServiceClient().rpc("vencer_reservas");
+  if (errorVencer) {
+    if (errorVencer.code !== "PGRST202" && errorVencer.code !== "42883") {
+      console.error("[conciliar] No se pudieron vencer las reservas:", errorVencer.message);
+    }
+  } else if (vencidas) {
+    resumen.vencidas = vencidas;
+    console.warn(`[conciliar] ${vencidas} pedido(s) por transferencia vencidos: cancelados y stock devuelto.`);
+  }
 
   const token = (await tokenDeLaTienda().catch(() => null)) ?? process.env.MP_ACCESS_TOKEN;
   if (!token) {

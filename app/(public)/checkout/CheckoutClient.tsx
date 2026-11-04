@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MapPin, Store, AlertCircle, Tag, Check, X } from "lucide-react";
+import { ArrowLeft, MapPin, Store, AlertCircle, Tag, Check, X, CreditCard, Landmark, Banknote } from "lucide-react";
 import { useCart } from "@/lib/hooks/useCart";
 import { formatPrice } from "@/lib/utils/format";
 import { DELIVERY_POINT_OPTIONS } from "@/lib/delivery";
 import { saveLastOrder } from "@/lib/checkout/lastOrder";
-import type { DeliveryPoint } from "@/lib/types/database";
+import { applyDiscountValue } from "@/lib/discounts/pricing";
+import { hayPagoSinMP, precioTransferencia, sena, type ConfigPagos } from "@/lib/pagos/precios";
+import type { DeliveryPoint, DiscountValueType, MedioPago } from "@/lib/types/database";
 
 type ContactErrors = {
   name?: string;
@@ -19,14 +21,15 @@ type ContactErrors = {
 type CouponState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "valid"; code: string; amountOff: number }
+  | { status: "valid"; code: string; valueType: DiscountValueType; value: number }
   | { status: "invalid"; message: string };
 
-export default function CheckoutClient() {
+export default function CheckoutClient({ config }: { config: ConfigPagos }) {
   const router = useRouter();
-  const { items, totalPrice, totalItems, clearCart } = useCart();
+  const { items, hydrated, totalPrice, totalItems } = useCart();
 
-  const [point, setPoint] = useState<DeliveryPoint>("haedo");
+  const [point, setPointRaw] = useState<DeliveryPoint>("haedo");
+  const [medio, setMedio] = useState<MedioPago>("mercadopago");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -40,15 +43,38 @@ export default function CheckoutClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Carrito vacío → volver al carrito (en efecto, no durante el render)
+  // Carrito vacío → volver al carrito (en efecto, no durante el render).
+  // Solo cuando ya se leyó el carrito guardado: antes, vacío no significa nada.
   useEffect(() => {
-    if (items.length === 0) router.replace("/carrito");
-  }, [items.length, router]);
-
-  const couponOff = coupon.status === "valid" ? coupon.amountOff : 0;
-  const total = Math.max(0, totalPrice - couponOff);
+    if (hydrated && items.length === 0) router.replace("/carrito");
+  }, [hydrated, items.length, router]);
 
   const isDomicilio = point === "domicilio";
+
+  // El efectivo se termina de pagar en mano al retirar: con envío no aplica.
+  function setPoint(p: DeliveryPoint) {
+    setPointRaw(p);
+    if (p === "domicilio" && medio === "efectivo") setMedio("transferencia");
+  }
+
+  // --- Totales por medio de pago (solo para mostrar: el servidor recalcula) ---
+  const pagoManual = medio !== "mercadopago";
+  const precioItem = (i: (typeof items)[number]) =>
+    pagoManual ? (i.priceTransfer ?? precioTransferencia(i.price, null, config)) : i.price;
+  const subtotal = pagoManual
+    ? items.reduce((s, i) => s + precioItem(i) * i.quantity, 0)
+    : totalPrice;
+  const subtotalTransferencia = items.reduce(
+    (s, i) => s + (i.priceTransfer ?? precioTransferencia(i.price, null, config)) * i.quantity,
+    0
+  );
+  const couponOff =
+    coupon.status === "valid"
+      ? subtotal - applyDiscountValue(subtotal, coupon.valueType, coupon.value)
+      : 0;
+  const total = Math.max(0, subtotal - couponOff);
+  const senaAhora = medio === "efectivo" ? sena(total, config) : 0;
+  const ahorro = totalPrice - subtotalTransferencia;
 
   async function applyCoupon() {
     const code = couponCode.trim();
@@ -62,7 +88,9 @@ export default function CheckoutClient() {
       });
       const data = await res.json();
       if (data.valid) {
-        setCoupon({ status: "valid", code, amountOff: data.amountOff });
+        // Se guarda el tipo y el valor (no el monto): el subtotal cambia según
+        // el medio de pago, y el descuento se recalcula sobre el que se elija.
+        setCoupon({ status: "valid", code, valueType: data.valueType, value: Number(data.value) });
       } else {
         setCoupon({ status: "invalid", message: data.error ?? "Cupón inválido" });
       }
@@ -96,6 +124,7 @@ export default function CheckoutClient() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          medio_pago: medio,
           items: items.map((i) => ({
             productId: i.productId,
             variantId: i.variantId,
@@ -123,10 +152,16 @@ export default function CheckoutClient() {
         items: items.map((i) => ({ name: i.name, size: i.size, quantity: i.quantity })),
       });
 
-      if (data.mp_init_point) {
+      if (data.pago_url) {
+        // Transferencia o efectivo: el pedido ya está hecho y las prendas
+        // reservadas. Se muestra adónde transferir. El carrito lo vacía esa
+        // página al abrir: vaciarlo acá disparaba el "carrito vacío → volver
+        // al carrito" de arriba, que le ganaba a esta navegación.
+        router.push(data.pago_url);
+      } else if (data.mp_init_point) {
         window.location.href = data.mp_init_point;
       } else {
-        clearCart();
+        // La pantalla de éxito vacía el carrito al abrir (misma razón que arriba).
         router.push(`/checkout/success?order=${data.order_id}`);
       }
     } catch (err) {
@@ -135,7 +170,7 @@ export default function CheckoutClient() {
     }
   }
 
-  if (items.length === 0) return null;
+  if (!hydrated || items.length === 0) return null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -149,7 +184,9 @@ export default function CheckoutClient() {
 
       <h1 className="mb-2 font-display text-5xl tracking-widest">CHECKOUT</h1>
       <p className="mb-8 text-sm text-neutral-500">
-        Sin cuenta, sin vueltas. Completá tus datos y pagás con MercadoPago.
+        {hayPagoSinMP(config)
+          ? "Sin cuenta, sin vueltas. Completá tus datos y elegí cómo pagás."
+          : "Sin cuenta, sin vueltas. Completá tus datos y pagás con MercadoPago."}
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -201,6 +238,56 @@ export default function CheckoutClient() {
                 })}
               </div>
             </section>
+
+            {/* Medio de pago (solo si Agustina habilitó transferencia o efectivo) */}
+            {hayPagoSinMP(config) && (
+              <section>
+                <p className="mb-3 text-xs font-semibold tracking-widest uppercase text-neutral-500">
+                  ¿Cómo pagás?
+                </p>
+                <div className="flex flex-col gap-3">
+                  <OpcionPago
+                    selected={medio === "mercadopago"}
+                    onClick={() => setMedio("mercadopago")}
+                    icon={CreditCard}
+                    titulo="Mercado Pago"
+                    detalle="Tarjeta de crédito o débito, o dinero en cuenta"
+                    precio={formatPrice(totalPrice)}
+                  />
+                  {config.transferenciaActiva && (
+                    <OpcionPago
+                      selected={medio === "transferencia"}
+                      onClick={() => setMedio("transferencia")}
+                      icon={Landmark}
+                      titulo="Transferencia"
+                      detalle={
+                        ahorro > 0
+                          ? `Ahorrás ${formatPrice(ahorro)}. Te pasamos el alias al confirmar.`
+                          : "Te pasamos el alias al confirmar."
+                      }
+                      precio={formatPrice(subtotalTransferencia)}
+                      destacado={ahorro > 0}
+                    />
+                  )}
+                  {config.efectivoActivo && (
+                    <OpcionPago
+                      selected={medio === "efectivo"}
+                      onClick={() => !isDomicilio && setMedio("efectivo")}
+                      disabled={isDomicilio}
+                      icon={Banknote}
+                      titulo="Efectivo al retirar"
+                      detalle={
+                        isDomicilio
+                          ? "Solo para retirar en Haedo o Ramos Mejía."
+                          : `Para reservar, transferís una seña del ${config.senaPorcentaje}%. El resto, en mano al retirar.`
+                      }
+                      precio={formatPrice(subtotalTransferencia)}
+                      destacado={ahorro > 0 && !isDomicilio}
+                    />
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* Datos de contacto */}
             <section className="flex flex-col gap-4">
@@ -278,7 +365,7 @@ export default function CheckoutClient() {
                       </span>
                     </span>
                     <span className="shrink-0 text-neutral-300">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPrice(precioItem(item) * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -329,8 +416,14 @@ export default function CheckoutClient() {
               <div className="flex flex-col gap-2 border-t border-neutral-700 pt-3 text-sm">
                 <div className="flex justify-between text-neutral-400">
                   <span>Subtotal ({totalItems} {totalItems === 1 ? "producto" : "productos"})</span>
-                  <span>{formatPrice(totalPrice)}</span>
+                  <span>{formatPrice(subtotal)}</span>
                 </div>
+                {pagoManual && ahorro > 0 && (
+                  <div className="flex justify-between text-green-400">
+                    <span>Pagando sin Mercado Pago</span>
+                    <span>ahorrás {formatPrice(ahorro)}</span>
+                  </div>
+                )}
                 {couponOff > 0 && (
                   <div className="flex justify-between text-green-400">
                     <span>Descuento</span>
@@ -345,6 +438,18 @@ export default function CheckoutClient() {
                   <span>Total</span>
                   <span className="text-red-500">{formatPrice(total)}</span>
                 </div>
+                {medio === "efectivo" && (
+                  <div className="mt-1 rounded-lg bg-neutral-950/60 p-3 text-xs leading-relaxed text-neutral-400">
+                    <div className="flex justify-between">
+                      <span>Seña ahora (transferencia)</span>
+                      <span className="font-bold text-neutral-200">{formatPrice(senaAhora)}</span>
+                    </div>
+                    <div className="mt-1 flex justify-between">
+                      <span>En efectivo al retirar</span>
+                      <span className="font-bold text-neutral-200">{formatPrice(total - senaAhora)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {submitError && (
@@ -359,16 +464,65 @@ export default function CheckoutClient() {
                 disabled={isSubmitting}
                 className="mt-6 w-full rounded-lg bg-red-600 px-6 py-4 text-sm font-bold uppercase tracking-wider text-white transition-all hover:bg-red-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isSubmitting ? "Procesando..." : "Ir a pagar"}
+                {isSubmitting ? "Procesando..." : pagoManual ? "Reservar mi pedido" : "Ir a pagar"}
               </button>
               <p className="mt-3 text-center text-[11px] text-neutral-600">
-                Pagás con MercadoPago: tarjeta, débito o efectivo.
+                {pagoManual
+                  ? `Te apartamos las prendas y tenés ${config.horasParaPagar} horas para transferir.`
+                  : "Pagás con MercadoPago: tarjeta, débito o efectivo."}
               </p>
             </div>
           </div>
         </div>
       </form>
     </div>
+  );
+}
+
+function OpcionPago({
+  selected,
+  onClick,
+  disabled = false,
+  icon: Icon,
+  titulo,
+  detalle,
+  precio,
+  destacado = false,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  icon: React.ComponentType<{ size?: number }>;
+  titulo: string;
+  detalle: string;
+  precio: string;
+  destacado?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={selected}
+      className={`flex items-center gap-4 rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40 ${
+        selected ? "border-red-600 bg-red-600/10" : "border-neutral-800 hover:border-neutral-600"
+      }`}
+    >
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+          selected ? "bg-red-600 text-white" : "bg-neutral-800 text-neutral-400"
+        }`}
+      >
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-neutral-100">{titulo}</span>
+        <span className="block text-xs text-neutral-500">{detalle}</span>
+      </span>
+      <span className={`shrink-0 text-sm font-bold ${destacado ? "text-green-400" : "text-neutral-300"}`}>
+        {precio}
+      </span>
+    </button>
   );
 }
 

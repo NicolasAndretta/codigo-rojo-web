@@ -66,6 +66,20 @@ export default async function OrdenesAdminPage() {
                 </p>
                 {/* Va abajo del nombre y no como otro cartel al costado: en el celu
                     no entran tres carteles en la misma fila. */}
+                {o.medio_pago && o.medio_pago !== "mercadopago" ? (
+                  <p className="mt-1 text-xs font-semibold text-amber-300">
+                    {o.medio_pago === "efectivo" ? "Efectivo con seña" : "Transferencia"}
+                    {o.status === "pending" && o.vence_el
+                      ? ` · espera hasta el ${new Date(o.vence_el).toLocaleString("es-AR", {
+                          timeZone: "America/Argentina/Buenos_Aires",
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : ""}
+                  </p>
+                ) : null}
                 {o.stock_insuficiente && o.status !== "cancelled" ? (
                   <p className="mt-1 text-xs font-bold text-red-400">
                     ⚠ Se vendió sin stock

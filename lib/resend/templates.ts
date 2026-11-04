@@ -1,4 +1,4 @@
-import { formatPrice } from "@/lib/utils/format";
+import { formatFechaHora, formatPrice } from "@/lib/utils/format";
 import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
 import type { DeliveryPoint } from "@/lib/types/database";
 
@@ -23,7 +23,23 @@ export type OrderEmailData = {
   items: OrderEmailItem[];
   /** Se pagó una prenda que ya no tenía stock (migración 011). Solo en el mail de la tienda. */
   sinStock?: boolean;
+  /** Pedido por transferencia o efectivo (migración 012). */
+  pagoManual?: PagoManualEmail;
 };
+
+export type PagoManualEmail = {
+  medio: "transferencia" | "efectivo";
+  /** Lo que hay que transferir (el total, o la seña si es efectivo). */
+  monto: number;
+  /** Lo que queda para pagar en efectivo al retirar (0 si es transferencia). */
+  resto: number;
+  alias: string | null;
+  titular: string | null;
+  venceEl: string | null;
+  /** Link a la página con los datos para transferir. */
+  url: string | null;
+};
+
 
 const BG = "#0a0a0a";
 const CARD = "#171717";
@@ -105,9 +121,85 @@ export function orderConfirmationHtml(data: OrderEmailData): string {
     ${itemsTable(data.items)}
     ${totalRow(data.total)}
     ${deliveryBlock(data)}
+    ${
+      data.pagoManual && data.pagoManual.resto > 0
+        ? `<p style="color:${TEXT};font-size:14px;margin-top:16px;line-height:1.6;">
+      Recibimos tu seña de <strong>${formatPrice(data.pagoManual.monto)}</strong>. Te queda pagar
+      <strong style="color:${RED};">${formatPrice(data.pagoManual.resto)}</strong> en efectivo cuando retirás.
+    </p>`
+        : ""
+    }
     <p style="color:${MUTED};font-size:13px;margin-top:20px;">Te vamos a escribir por WhatsApp para coordinar la entrega. ¡Gracias por elegir Código Rojo!</p>
   `;
   return shell("¡Pedido confirmado!", inner);
+}
+
+function bloqueTransferencia(p: PagoManualEmail): string {
+  const que =
+    p.medio === "efectivo"
+      ? `Para reservar, transferí la seña de <strong style="color:${RED};">${formatPrice(p.monto)}</strong>.
+         El resto, <strong>${formatPrice(p.resto)}</strong>, lo pagás en efectivo cuando retirás.`
+      : `Transferí <strong style="color:${RED};">${formatPrice(p.monto)}</strong>.`;
+  return `
+    <div style="margin:16px 0;padding:16px;background:${BG};border:1px solid ${RED};border-radius:8px;">
+      <p style="color:${TEXT};font-size:14px;margin:0 0 10px;line-height:1.6;">${que}</p>
+      <p style="color:${MUTED};font-size:12px;text-transform:uppercase;letter-spacing:1px;margin:0 0 4px;">Alias</p>
+      <p style="color:${TEXT};font-size:18px;font-weight:700;margin:0 0 10px;">${p.alias ?? "—"}</p>
+      ${p.titular ? `<p style="color:${MUTED};font-size:13px;margin:0 0 10px;">A nombre de ${p.titular}</p>` : ""}
+      ${
+        p.venceEl
+          ? `<p style="color:${MUTED};font-size:13px;margin:0;">Tenés tiempo hasta el <strong style="color:${TEXT};">${formatFechaHora(p.venceEl)}</strong>: si no, el pedido se cancela solo y las prendas vuelven a estar a la venta.</p>`
+          : ""
+      }
+    </div>`;
+}
+
+/** Al cliente, apenas hace un pedido por transferencia o efectivo. */
+export function instruccionesTransferenciaHtml(data: OrderEmailData): string {
+  if (!data.pagoManual) return orderConfirmationHtml(data);
+  const inner = `
+    <p style="color:${MUTED};font-size:14px;margin:0 0 8px;line-height:1.6;">
+      Hola ${data.customerName || "👋"}, te reservamos el pedido
+      <strong style="color:${TEXT};">#${data.orderId}</strong>.
+    </p>
+    ${bloqueTransferencia(data.pagoManual)}
+    <p style="color:${MUTED};font-size:13px;margin:0 0 16px;line-height:1.6;">
+      Cuando transfieras, mandanos el comprobante por WhatsApp y te confirmamos.
+      ${data.pagoManual.url ? `<br/><a href="${data.pagoManual.url}" style="color:${RED};">Ver los datos para transferir</a>` : ""}
+    </p>
+    ${itemsTable(data.items)}
+    ${totalRow(data.total)}
+    ${deliveryBlock(data)}
+  `;
+  return shell("Tu pedido está reservado", inner);
+}
+
+/** A la tienda, apenas entra un pedido por transferencia o efectivo. */
+export function pedidoTransferenciaAdminHtml(data: OrderEmailData): string {
+  const p = data.pagoManual;
+  if (!p) return adminNotificationHtml(data);
+  const inner = `
+    <p style="color:${MUTED};font-size:14px;margin:0 0 16px;line-height:1.6;">
+      Pedido <strong style="color:${TEXT};">#${data.orderId}</strong> por
+      <strong style="color:${TEXT};">${p.medio === "efectivo" ? "efectivo con seña" : "transferencia"}</strong>.
+      Las prendas ya quedaron reservadas.<br/>
+      Cliente: ${data.customerName || "—"} · ${data.customerPhone || "sin teléfono"}
+    </p>
+    <div style="margin:0 0 16px;padding:14px;background:${BG};border:1px solid ${BORDER};border-radius:8px;">
+      <p style="color:${TEXT};font-size:14px;margin:0;line-height:1.7;">
+        Esperando una transferencia de <strong style="color:${RED};">${formatPrice(p.monto)}</strong>
+        ${p.resto > 0 ? `<br/>Resto en efectivo al retirar: <strong>${formatPrice(p.resto)}</strong>` : ""}
+        ${p.venceEl ? `<br/><span style="color:${MUTED};">Si no llega antes del ${formatFechaHora(p.venceEl)}, se cancela solo y las prendas vuelven al stock.</span>` : ""}
+      </p>
+    </div>
+    <p style="color:${MUTED};font-size:13px;margin:0 0 16px;">
+      Cuando veas la plata en tu cuenta, entrá al panel → Órdenes → #${data.orderId} y tocá «Recibí la transferencia».
+    </p>
+    ${itemsTable(data.items)}
+    ${totalRow(data.total)}
+    ${deliveryBlock(data)}
+  `;
+  return shell("Nuevo pedido: esperando transferencia", inner);
 }
 
 export function adminNotificationHtml(data: OrderEmailData): string {

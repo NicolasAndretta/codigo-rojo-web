@@ -3,14 +3,15 @@ import Image from "next/image";
 import type { ProductWithVariants } from "@/lib/types/database";
 import type { PriceResult } from "@/lib/discounts/pricing";
 import { inStockSizes as getInStockSizes, isLowStock, isSoldOut } from "@/lib/utils/stock";
-import PriceTag, { DiscountBadge } from "./PriceTag";
+import PriceTag, { DiscountBadge, type PrecioTransferenciaTag } from "./PriceTag";
 
 type Props = {
   product: ProductWithVariants;
   price: PriceResult;
+  transfer?: PrecioTransferenciaTag | null;
 };
 
-export default function ProductCard({ product, price }: Props) {
+export default function ProductCard({ product, price, transfer }: Props) {
   const inStockSizes = getInStockSizes(product.variants);
   const soldOut = isSoldOut(product.variants);
   const hasStock = !soldOut;
@@ -111,7 +112,7 @@ export default function ProductCard({ product, price }: Props) {
         )}
 
         <div className="mt-auto pt-1">
-          <PriceTag price={price} />
+          <PriceTag price={price} transfer={transfer} />
         </div>
       </div>
     </Link>

@@ -5,6 +5,8 @@ import CategoryPills from "@/components/catalog/CategoryPills";
 import SizeFilter from "@/components/catalog/SizeFilter";
 import { fetchActiveDiscounts } from "@/lib/discounts/server";
 import { effectivePrice } from "@/lib/discounts/pricing";
+import { leerConfigPagos } from "@/lib/pagos/config";
+import { etiquetaTransferencia } from "@/lib/pagos/precios";
 import type { Category, ProductWithVariants } from "@/lib/types/database";
 
 type SearchParams = {
@@ -63,11 +65,18 @@ export default async function CatalogoPage({
   }
 
   // Precios con descuento (producto/categoría) para cada producto
-  const discounts = await fetchActiveDiscounts(supabase);
-  const pricedProducts = products.map((p) => ({
-    product: p,
-    price: effectivePrice(p, discounts, p.id),
-  }));
+  const [discounts, configPagos] = await Promise.all([
+    fetchActiveDiscounts(supabase),
+    leerConfigPagos(supabase),
+  ]);
+  const pricedProducts = products.map((p) => {
+    const price = effectivePrice(p, discounts, p.id);
+    return {
+      product: p,
+      price,
+      transfer: etiquetaTransferencia(price.final, p.precio_transferencia, configPagos),
+    };
+  });
 
   return (
     <div>
@@ -122,8 +131,8 @@ export default async function CatalogoPage({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {pricedProducts.map(({ product, price }) => (
-              <ProductCard key={product.id} product={product} price={price} />
+            {pricedProducts.map(({ product, price, transfer }) => (
+              <ProductCard key={product.id} product={product} price={price} transfer={transfer} />
             ))}
           </div>
         )}

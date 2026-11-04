@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductSize, OrderStatus } from "@/lib/types/database";
+import { cancelarPedidoReservado, confirmarTransferencia } from "@/lib/admin/cobros";
 
 const ALL_SIZES: ProductSize[] = ["XS", "S", "M", "L", "XL", "XXL"];
 const ORDER_STATUSES: OrderStatus[] = [
@@ -89,9 +90,30 @@ export async function updateProduct(id: number, formData: FormData) {
     throw new Error("Nombre y precio (mayor a 0) son obligatorios");
   }
 
+  // Precio por transferencia a mano (migración 012). El campo solo aparece en
+  // el formulario si la columna existe; si no vino, no se toca.
+  let precioTransferencia: { precio_transferencia: number | null } | Record<string, never> = {};
+  if (formData.has("precio_transferencia")) {
+    const crudo = String(formData.get("precio_transferencia") ?? "").trim();
+    const valor = crudo === "" ? null : Number(crudo);
+    if (valor !== null && (!Number.isFinite(valor) || valor <= 0)) {
+      throw new Error("El precio por transferencia tiene que ser mayor a 0 (o dejalo vacío)");
+    }
+    if (valor !== null && valor > price) {
+      throw new Error("El precio por transferencia no puede ser más caro que el precio normal");
+    }
+    precioTransferencia = { precio_transferencia: valor };
+  }
+
   const { error } = await supabase
     .from("products")
-    .update({ name, description: description || null, price, category_id: categoryId })
+    .update({
+      name,
+      description: description || null,
+      price,
+      category_id: categoryId,
+      ...precioTransferencia,
+    })
     .eq("id", id);
   lanzarSi(error, "No se pudieron guardar los datos del producto");
 
@@ -360,6 +382,23 @@ export async function updateOrderStatus(id: number, formData: FormData) {
 
   if (!ORDER_STATUSES.includes(status)) {
     throw new Error("Estado inválido");
+  }
+
+  // Pedidos por transferencia (migración 012) con las prendas reservadas: si
+  // se cancelan o se marcan pagados desde el desplegable, pasan por el mismo
+  // camino que los botones. Si no, cancelar dejaba las prendas descontadas
+  // para siempre, y pagar salteaba el cupón y el mail al cliente.
+  // "*" porque las columnas de la 012 pueden no existir todavía.
+  const { data: actual } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+  if (actual?.status === "pending" && actual.medio_pago && actual.medio_pago !== "mercadopago") {
+    if (status === "cancelled" && actual.stock_reservado) {
+      await cancelarPedidoReservado(id);
+      return;
+    }
+    if (status === "paid") {
+      await confirmarTransferencia(id);
+      return;
+    }
   }
 
   // Este es EL caso que documenta la migración 007: fallaba en silencio por un

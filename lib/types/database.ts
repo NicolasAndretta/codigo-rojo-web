@@ -71,6 +71,7 @@ export type Database = {
           category_id: number | null;
           images: string[];
           is_active: boolean;
+          precio_transferencia: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -82,6 +83,7 @@ export type Database = {
           category_id?: number | null;
           images?: string[];
           is_active?: boolean;
+          precio_transferencia?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -92,6 +94,7 @@ export type Database = {
           category_id?: number | null;
           images?: string[];
           is_active?: boolean;
+          precio_transferencia?: number | null;
           updated_at?: string;
         };
         Relationships: [
@@ -150,6 +153,11 @@ export type Database = {
           mp_payment_id: string | null;
           mp_preference_id: string | null;
           stock_insuficiente: boolean;
+          medio_pago: MedioPago;
+          monto_a_transferir: number | null;
+          vence_el: string | null;
+          stock_reservado: boolean;
+          token_publico: string;
           created_at: string;
           updated_at: string;
         };
@@ -169,6 +177,10 @@ export type Database = {
           mp_payment_id?: string | null;
           mp_preference_id?: string | null;
           stock_insuficiente?: boolean;
+          medio_pago?: MedioPago;
+          monto_a_transferir?: number | null;
+          vence_el?: string | null;
+          stock_reservado?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -183,6 +195,9 @@ export type Database = {
           coupon_discount_id?: number | null;
           mp_payment_id?: string | null;
           mp_preference_id?: string | null;
+          medio_pago?: MedioPago;
+          monto_a_transferir?: number | null;
+          vence_el?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -317,6 +332,41 @@ export type Database = {
         ];
       };
       /** Migración 010. Solo el servidor (service role) la lee: tiene el token de la tienda. */
+      tienda_config: {
+        Row: {
+          id: number;
+          transferencia_activa: boolean;
+          efectivo_activo: boolean;
+          descuento_transferencia: number;
+          alias: string | null;
+          titular: string | null;
+          sena_porcentaje: number;
+          horas_para_pagar: number;
+          actualizada_el: string;
+        };
+        Insert: {
+          id?: number;
+          transferencia_activa?: boolean;
+          efectivo_activo?: boolean;
+          descuento_transferencia?: number;
+          alias?: string | null;
+          titular?: string | null;
+          sena_porcentaje?: number;
+          horas_para_pagar?: number;
+          actualizada_el?: string;
+        };
+        Update: {
+          transferencia_activa?: boolean;
+          efectivo_activo?: boolean;
+          descuento_transferencia?: number;
+          alias?: string | null;
+          titular?: string | null;
+          sena_porcentaje?: number;
+          horas_para_pagar?: number;
+          actualizada_el?: string;
+        };
+        Relationships: [];
+      };
       mp_conexion: {
         Row: {
           id: number;
@@ -378,6 +428,24 @@ export type Database = {
         Args: { p_discount_id: number };
         Returns: undefined;
       };
+      /** Migración 012. false si alguna prenda no alcanza (y no toca nada). */
+      reservar_stock: {
+        Args: { p_order_id: number };
+        Returns: boolean;
+      };
+      confirmar_pago_manual: {
+        Args: { p_order_id: number };
+        Returns: boolean;
+      };
+      cancelar_reserva: {
+        Args: { p_order_id: number };
+        Returns: boolean;
+      };
+      /** Cuántos pedidos vencidos canceló. */
+      vencer_reservas: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: {
       user_role: "admin" | "client";
@@ -401,6 +469,10 @@ export type Order = Database["public"]["Tables"]["orders"]["Row"];
 export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 export type ShippingAddress = Database["public"]["Tables"]["shipping_addresses"]["Row"];
 export type Discount = Database["public"]["Tables"]["discounts"]["Row"];
+export type TiendaConfig = Database["public"]["Tables"]["tienda_config"]["Row"];
+
+/** Cómo se paga un pedido (migración 012). */
+export type MedioPago = "mercadopago" | "transferencia" | "efectivo";
 
 export type ProductSize = Database["public"]["Enums"]["product_size"];
 export type OrderStatus = Database["public"]["Enums"]["order_status"];

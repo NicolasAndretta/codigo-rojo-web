@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { updateOrderStatus } from "@/lib/admin/actions";
-import { formatPrice } from "@/lib/utils/format";
+import { formatFechaHora, formatPrice } from "@/lib/utils/format";
 import {
   ORDER_STATUS_LABELS,
   ORDER_STATUS_CLASSES,
@@ -11,8 +11,81 @@ import {
 } from "@/lib/utils/orderStatus";
 import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
 import type { Order } from "@/lib/types/database";
+import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
+import { cancelarPedidoReservado, confirmarTransferencia } from "@/lib/admin/cobros";
 
 export const metadata = { title: "Orden | Admin" };
+
+
+/** El bloque de un pedido por transferencia o efectivo: cuánto, hasta cuándo, y los botones. */
+function PagoManual({ order }: { order: Order }) {
+  const efectivo = order.medio_pago === "efectivo";
+  const monto = Number(order.monto_a_transferir ?? order.total);
+  const resto = Math.max(0, Number(order.total) - monto);
+  const pendiente = order.status === "pending";
+
+  return (
+    <section
+      className={`rounded-lg border p-5 text-sm leading-relaxed ${
+        pendiente ? "border-amber-600/60 bg-amber-950/20" : "border-neutral-800 bg-neutral-900"
+      }`}
+    >
+      <h2 className="mb-3 text-sm font-bold uppercase tracking-widest text-neutral-400">
+        {efectivo ? "Efectivo con seña" : "Transferencia"}
+      </h2>
+
+      <p className="text-neutral-300">
+        {efectivo ? "Seña por transferencia: " : "Tiene que transferir: "}
+        <strong className="text-neutral-100">{formatPrice(monto)}</strong>
+      </p>
+      {resto > 0 && (
+        <p className="text-neutral-300">
+          En efectivo al retirar: <strong className="text-neutral-100">{formatPrice(resto)}</strong>
+        </p>
+      )}
+
+      {pendiente ? (
+        <>
+          {order.vence_el && (
+            <p className="mt-2 text-amber-200/90">
+              Las prendas están reservadas hasta el {formatFechaHora(order.vence_el)}: si no llega la plata,
+              el pedido se cancela solo y vuelven al stock.
+            </p>
+          )}
+          <p className="mt-2 text-neutral-400">
+            Cuando veas la transferencia en tu cuenta de Mercado Pago, tocá «Recibí la transferencia»: el
+            pedido pasa a Pagada y al cliente le llega la confirmación.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <SavingForm action={confirmarTransferencia.bind(null, order.id)} successMessage="Pago confirmado">
+              <SubmitButton
+                pendingLabel="Confirmando…"
+                className="rounded-lg bg-green-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-green-700"
+              >
+                Recibí la transferencia
+              </SubmitButton>
+            </SavingForm>
+            <SavingForm
+              action={cancelarPedidoReservado.bind(null, order.id)}
+              successMessage="Pedido cancelado: las prendas volvieron al stock"
+            >
+              <SubmitButton
+                pendingLabel="Cancelando…"
+                className="rounded-lg border border-neutral-700 px-5 py-2.5 text-sm font-bold text-neutral-300 transition-colors hover:bg-neutral-800"
+              >
+                Cancelar y liberar las prendas
+              </SubmitButton>
+            </SavingForm>
+          </div>
+        </>
+      ) : order.status === "cancelled" ? (
+        <p className="mt-2 text-neutral-500">Cancelado: las prendas volvieron al stock.</p>
+      ) : (
+        <p className="mt-2 text-green-400">✓ Pago recibido.</p>
+      )}
+    </section>
+  );
+}
 
 type ItemRow = {
   quantity: number;
@@ -78,6 +151,11 @@ export default async function OrdenDetallePage({
               si ya la habías pasado a otro estado, cancelala a mano acá abajo.
             </p>
           </section>
+        ) : null}
+
+        {/* Pago por transferencia o efectivo (migración 012) */}
+        {order.medio_pago && order.medio_pago !== "mercadopago" ? (
+          <PagoManual order={order} />
         ) : null}
 
         {/* Items */}
