@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { getPaymentClient } from "@/lib/mercadopago/client";
-import { createServiceClient } from "@/lib/supabase/admin";
-import { sendOrderEmails } from "@/lib/resend/order-emails";
+import { procesarPago } from "@/lib/mercadopago/procesar-pago";
 
 /**
  * Verifica la firma con la que MercadoPago firma cada notificación.
@@ -92,121 +91,19 @@ export async function POST(req: NextRequest) {
 
     const payment = await (await getPaymentClient()).get({ id: String(paymentId) });
 
-    if (!payment.external_reference) {
-      return NextResponse.json({ ok: true });
-    }
+    // La validación (monto, devoluciones, idempotencia) vive en procesarPago:
+    // la conciliación usa la misma, para que los dos caminos nunca difieran.
+    const resultado = await procesarPago(payment);
 
-    const orderId = Number(payment.external_reference);
-    const supabase = createServiceClient();
-
-    // --- Devolución o contracargo: MP devolvió la plata ---
-    // Antes sólo se miraba 'approved', así que estos casos no hacían nada y la
-    // orden quedaba cobrada y el stock descontado para siempre.
-    if (payment.status === "refunded" || payment.status === "charged_back") {
-      const { data: revertida, error: revertirError } = await supabase.rpc(
-        "mark_order_refunded",
-        { p_order_id: orderId }
-      );
-
-      if (revertirError) {
-        return NextResponse.json({ error: "rpc failed" }, { status: 500 });
-      }
-
-      if (revertida) {
-        console.warn(
-          `[webhook] Orden ${orderId} revertida por ${payment.status}: ` +
-            `cancelada y stock repuesto (pago ${paymentId}).`
-        );
-      } else {
-        // La orden ya salió de 'paid': está en preparación, despachada o
-        // entregada. NO se repone stock automáticamente porque la mercadería
-        // ya no está. Necesita que alguien mire el caso.
-        console.error(
-          `[webhook] ⚠️ REVISAR A MANO — la orden ${orderId} recibió ${payment.status} ` +
-            `pero ya no estaba en 'paid'. No se repuso stock ni se canceló: la ` +
-            `mercadería pudo haber salido. Pago ${paymentId}.`
-        );
-      }
-
-      return NextResponse.json({ ok: true });
-    }
-
-    if (payment.status !== "approved") {
-      return NextResponse.json({ ok: true });
-    }
-
-    // --- Antes de marcar pagado: que lo cobrado coincida con lo que vale ---
-    // Sin esto, alcanzaba con que la orden dijera un total distinto del que MP
-    // cobró para despachar mercadería casi gratis. Es el cinturón de la
-    // migración 008, que cerró el camino por el que se podía tocar la orden.
-    const { data: orden, error: ordenError } = await supabase
-      .from("orders")
-      .select("total, order_items(quantity, unit_price)")
-      .eq("id", orderId)
-      .single<{
-        total: number | string;
-        order_items: { quantity: number; unit_price: number | string }[];
-      }>();
-
-    if (ordenError || !orden) {
-      // La orden tendría que existir: la crea /api/orders antes de mandar a MP.
-      // 500 para que MP reintente por si es un problema momentáneo de la base.
-      return NextResponse.json({ error: "orden no encontrada" }, { status: 500 });
-    }
-
-    const totalOrden = Number(orden.total);
-    const cobrado = Number(payment.transaction_amount ?? 0);
-    // Suma de los ítems al precio que se congeló al crear la orden. El total
-    // puede ser MENOR si se usó un cupón, pero nunca mayor.
-    const sumaItems = orden.order_items.reduce(
-      (acc, it) => acc + Number(it.unit_price) * it.quantity,
-      0
-    );
-
-    // Un peso de tolerancia: los numeric de Postgres y los montos de MP pueden
-    // diferir en centavos por redondeo, y eso no es un fraude.
-    const TOLERANCIA = 1;
-    const cobradoNoCoincide = Math.abs(cobrado - totalOrden) > TOLERANCIA;
-    const totalInflado = totalOrden - sumaItems > TOLERANCIA;
-
-    if (cobradoNoCoincide || totalInflado) {
-      // NO se marca pagada. 200 a propósito: reintentar no lo va a arreglar, y
+    if (resultado === "monto-inconsistente") {
+      // NO se marcó pagada. 200 a propósito: reintentar no lo va a arreglar, y
       // dejar que MP reintente para siempre solo llena los logs de ruido.
-      console.error(
-        `[webhook] Monto inconsistente en la orden ${orderId} — NO se marcó pagada. ` +
-          `cobrado=${cobrado} total=${totalOrden} suma_items=${sumaItems} pago=${paymentId}`
-      );
       return NextResponse.json({ ok: true, revisar: true });
     }
-
-    const { data: changed, error } = await supabase.rpc("mark_order_paid", {
-      p_order_id: orderId,
-      p_payment_id: String(paymentId),
-    });
-
-    if (error) {
-      // Error transitorio → 500 para que MP reintente
-      return NextResponse.json({ error: "rpc failed" }, { status: 500 });
-    }
-
-    // changed === true sólo la primera vez (idempotencia) → emails + cupón una sola vez
-    if (changed) {
-      // Redimir cupón si la orden usó uno
-      const { data: order } = await supabase
-        .from("orders")
-        .select("coupon_discount_id")
-        .eq("id", orderId)
-        .single<{ coupon_discount_id: number | null }>();
-
-      if (order?.coupon_discount_id) {
-        await supabase.rpc("redeem_coupon", { p_discount_id: order.coupon_discount_id });
-      }
-
-      await sendOrderEmails(orderId);
-    }
-
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    // Error transitorio (la base o MP no respondieron) → 500 para que MP reintente.
+    console.error("[webhook] Error procesando la notificación:", err);
     return NextResponse.json({ error: "webhook error" }, { status: 500 });
   }
 }

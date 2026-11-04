@@ -21,6 +21,8 @@ export type OrderEmailData = {
   deliveryAddress: string | null;
   deliveryNotes: string | null;
   items: OrderEmailItem[];
+  /** Se pagó una prenda que ya no tenía stock (migración 011). Solo en el mail de la tienda. */
+  sinStock?: boolean;
 };
 
 const BG = "#0a0a0a";
@@ -109,7 +111,17 @@ export function orderConfirmationHtml(data: OrderEmailData): string {
 }
 
 export function adminNotificationHtml(data: OrderEmailData): string {
+  const avisoSinStock = data.sinStock
+    ? `<div style="border:1px solid #ef4444;background:#450a0a;border-radius:8px;padding:12px 16px;margin:0 0 16px;">
+      <p style="color:#fca5a5;font-size:14px;font-weight:bold;margin:0 0 4px;">⚠️ Se vendió sin stock</p>
+      <p style="color:#e5e5e5;font-size:13px;margin:0;line-height:1.5;">
+        Cuando se confirmó el pago, alguna prenda de esta orden ya no tenía unidades. El cliente ya pagó:
+        escribile y ofrecele esperar a que repongas, cambiarla, o devolverle la plata desde Mercado Pago.
+      </p>
+    </div>`
+    : "";
   const inner = `
+    ${avisoSinStock}
     <p style="color:${MUTED};font-size:14px;margin:0 0 16px;line-height:1.6;">
       Nueva orden pagada <strong style="color:${TEXT};">#${data.orderId}</strong><br/>
       Cliente: ${data.customerName || "—"} · ${data.customerPhone || "sin teléfono"}

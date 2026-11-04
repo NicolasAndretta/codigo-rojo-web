@@ -4,10 +4,27 @@ import { formatPrice } from "@/lib/utils/format";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_CLASSES } from "@/lib/utils/orderStatus";
 import { DELIVERY_POINT_LABELS } from "@/lib/delivery";
 import type { Order } from "@/lib/types/database";
+import { esAdmin } from "@/lib/admin/sesion";
+import { conciliar } from "@/lib/mercadopago/conciliar";
 
 export const metadata = { title: "Órdenes | Admin" };
 
+// Antes de listar, se le pregunta a Mercado Pago por las órdenes pendientes:
+// si alguna se pagó y el aviso no llegó, aparece confirmada acá mismo
+// (lib/mercadopago/conciliar.ts). Con tope de tiempo: si MP tarda, la lista
+// se muestra igual y la conciliación termina sola en segundo plano.
+const ESPERA_CONCILIACION_MS = 4000;
+
 export default async function OrdenesAdminPage() {
+  // El layout ya frena a quien no es admin, pero la página arranca en paralelo
+  // con el layout: sin este chequeo, cualquiera dispararía la conciliación.
+  if (await esAdmin()) {
+    await Promise.race([
+      conciliar().catch(() => null),
+      new Promise((r) => setTimeout(r, ESPERA_CONCILIACION_MS)),
+    ]);
+  }
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("orders")
@@ -47,6 +64,13 @@ export default async function OrdenesAdminPage() {
                   })}{" "}
                   · {o.delivery_point ? DELIVERY_POINT_LABELS[o.delivery_point] : "—"}
                 </p>
+                {/* Va abajo del nombre y no como otro cartel al costado: en el celu
+                    no entran tres carteles en la misma fila. */}
+                {o.stock_insuficiente && o.status !== "cancelled" ? (
+                  <p className="mt-1 text-xs font-bold text-red-400">
+                    ⚠ Se vendió sin stock
+                  </p>
+                ) : null}
               </div>
 
               <span className="shrink-0 text-sm font-semibold text-neutral-200">

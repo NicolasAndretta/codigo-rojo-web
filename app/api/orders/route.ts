@@ -6,6 +6,7 @@ import { fetchActiveDiscounts, validateCoupon, couponAmountOff } from "@/lib/dis
 import { effectivePrice } from "@/lib/discounts/pricing";
 import type { CartItem } from "@/lib/hooks/useCart";
 import type { Database, DeliveryPoint } from "@/lib/types/database";
+import { DEMASIADOS_INTENTOS, ipDe, permitir } from "@/lib/limite";
 
 type OrderBody = {
   items: Pick<CartItem, "productId" | "variantId" | "quantity">[];
@@ -26,6 +27,12 @@ type ProductRow = { id: number; name: string; price: number; category_id: number
 const DELIVERY_POINTS: DeliveryPoint[] = ["haedo", "ramos_mejia", "domicilio"];
 
 export async function POST(req: NextRequest) {
+  // 6 pedidos cada 10 minutos por IP. Una persona real no arma más; un robot
+  // que quiere llenar el panel de pedidos falsos (o probar cupones por acá) sí.
+  if (!permitir(`orden:${ipDe(req)}`, 6, 10 * 60 * 1000)) {
+    return NextResponse.json({ error: DEMASIADOS_INTENTOS }, { status: 429 });
+  }
+
   // Cliente del request: respeta RLS. La compra es anónima (user_id null);
   // si hubiera sesión (admin probando), se asocia igual.
   const supabase = await createClient();

@@ -70,6 +70,16 @@ export async function sendOrderEmails(orderId: number): Promise<void> {
       unitPrice: r.unit_price,
     }));
 
+    // Aparte y tolerante a propósito: si la migración 011 todavía no corrió, la
+    // columna no existe y esta consulta falla. Metida en la de arriba, ese error
+    // dejaba la orden en null y NO salía ningún mail.
+    const { data: marca } = await supabase
+      .from("orders")
+      .select("stock_insuficiente")
+      .eq("id", orderId)
+      .maybeSingle<{ stock_insuficiente: boolean }>();
+    const sinStock = marca?.stock_insuficiente === true;
+
     const data: OrderEmailData = {
       orderId,
       customerName,
@@ -80,6 +90,7 @@ export async function sendOrderEmails(orderId: number): Promise<void> {
       deliveryAddress: order.delivery_address,
       deliveryNotes: order.delivery_notes,
       items,
+      sinStock,
     };
 
     const from = process.env.EMAIL_FROM ?? "Código Rojo <onboarding@resend.dev>";
@@ -99,7 +110,9 @@ export async function sendOrderEmails(orderId: number): Promise<void> {
       await resend.emails.send({
         from,
         to: adminEmail,
-        subject: `🛒 Nueva orden #${orderId}`,
+        subject: sinStock
+          ? `⚠️ Nueva orden #${orderId} — SE VENDIÓ SIN STOCK`
+          : `🛒 Nueva orden #${orderId}`,
         html: adminNotificationHtml(data),
       });
     }

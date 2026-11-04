@@ -149,6 +149,7 @@ export type Database = {
           coupon_discount_id: number | null;
           mp_payment_id: string | null;
           mp_preference_id: string | null;
+          stock_insuficiente: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -167,6 +168,7 @@ export type Database = {
           coupon_discount_id?: number | null;
           mp_payment_id?: string | null;
           mp_preference_id?: string | null;
+          stock_insuficiente?: boolean;
           created_at?: string;
           updated_at?: string;
         };

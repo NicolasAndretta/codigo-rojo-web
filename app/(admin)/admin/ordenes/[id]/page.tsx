@@ -66,6 +66,20 @@ export default async function OrdenDetallePage({
       </div>
 
       <div className="flex flex-col gap-6">
+        {/* Sobreventa (migración 011): se pagó una prenda que ya no había. */}
+        {order.stock_insuficiente && order.status !== "cancelled" ? (
+          <section className="rounded-lg border border-red-500/60 bg-red-950/40 p-5 text-sm leading-relaxed">
+            <p className="font-bold text-red-300">⚠ Se vendió sin stock</p>
+            <p className="mt-1 text-neutral-300">
+              Cuando se confirmó este pago, alguna de estas prendas ya no tenía unidades: dos
+              personas compraron la última casi al mismo tiempo. El cliente ya pagó. Escribile
+              y ofrecele esperar a que repongas, cambiarla por otra, o devolverle la plata desde
+              Mercado Pago. Si la devolvés mientras la orden sigue en «Pagada», se cancela sola;
+              si ya la habías pasado a otro estado, cancelala a mano acá abajo.
+            </p>
+          </section>
+        ) : null}
+
         {/* Items */}
         <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
