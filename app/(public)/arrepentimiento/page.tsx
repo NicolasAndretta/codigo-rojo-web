@@ -14,7 +14,7 @@ export default function ArrepentimientoPage() {
         <p>
           Si compraste en la tienda, tenés <strong className="text-neutral-200">10 días corridos</strong>{" "}
           desde que recibiste tu pedido para arrepentirte, sin dar explicaciones (Ley 24.240, art. 34, y
-          Resolución 424/2020).
+          Disposición 954/2025).
         </p>
         <p>
           Completá tus datos y te damos en el momento un <strong className="text-neutral-200">código de

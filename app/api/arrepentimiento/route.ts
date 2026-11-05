@@ -5,7 +5,7 @@ import { DEMASIADOS_INTENTOS, ipDe, permitir } from "@/lib/limite";
 import { avisarArrepentimiento } from "@/lib/resend/arrepentimiento";
 
 // ============================================================
-// Botón de arrepentimiento (Resolución 424/2020) — migración 013.
+// Botón de arrepentimiento (Disposición 954/2025) — migración 013.
 //
 // El comprador pide revocar su compra sin registrarse. Se guarda el pedido y
 // se le devuelve en el momento el código de trámite (la norma pide darlo

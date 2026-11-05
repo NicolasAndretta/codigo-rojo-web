@@ -5,7 +5,7 @@
 --
 -- POR QUÉ
 --
--- La Resolución 424/2020 (Secretaría de Comercio Interior) obliga a las
+-- La Disposición 954/2025 (Defensa del Consumidor; reemplazó a la Res. 424/2020) obliga a las
 -- tiendas online a tener un "botón de arrepentimiento" visible: el comprador
 -- puede revocar la compra dentro de los 10 días corridos desde que la recibe
 -- (art. 34 de la Ley 24.240), sin registrarse, y la tienda tiene que darle un

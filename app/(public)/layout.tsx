@@ -49,7 +49,7 @@ export default async function PublicLayout({
             @codigorojo.ind
           </a>
         </p>
-        {/* Resolución 424/2020: tiene que estar a la vista en toda la tienda. */}
+        {/* Disposición 954/2025: tiene que estar a la vista en toda la tienda. */}
         <p className="mt-3 text-sm">
           <a
             href="/arrepentimiento"
