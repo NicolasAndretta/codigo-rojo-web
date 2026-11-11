@@ -10,7 +10,11 @@ import {
   removeProductImage,
   toggleProductActive,
 } from "@/lib/admin/actions";
+import { pedidosDeProducto } from "@/lib/admin/productos";
 import CategorySelect from "@/components/admin/CategorySelect";
+import PrecioProducto from "@/components/admin/PrecioProducto";
+import BorrarProducto from "@/components/admin/BorrarProducto";
+import { leerConfigPagos } from "@/lib/pagos/config";
 import SubirFoto from "@/components/admin/SubirFoto";
 import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
 import { totalStock as sumStock } from "@/lib/utils/stock";
@@ -29,13 +33,15 @@ export default async function EditarProductoPage({
   const productId = Number(id);
   const supabase = await createClient();
 
-  const [{ data: productData }, { data: rawCategories }] = await Promise.all([
+  const [{ data: productData }, { data: rawCategories }, configPagos, pedidos] = await Promise.all([
     supabase
       .from("products")
       .select("*, variants:product_variants(*)")
       .eq("id", productId)
       .single(),
     supabase.from("categories").select("*").order("display_order"),
+    leerConfigPagos(supabase),
+    pedidosDeProducto(productId),
   ]);
 
   if (!productData) notFound();
@@ -121,50 +127,17 @@ export default async function EditarProductoPage({
                 className="w-full resize-none rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                  Precio (ARS)
-                </label>
-                <input
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={product.price}
-                  required
-                  className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                  Categoría
-                </label>
-                <CategorySelect categories={categories} defaultValue={product.category_id} />
-              </div>
-            </div>
-            {/* Solo si ya se corrió la migración 012 (si no, la columna no existe
-                y guardar el producto fallaría). */}
-            {"precio_transferencia" in product && (
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                  Precio por transferencia (opcional)
-                </label>
-                <input
-                  name="precio_transferencia"
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={product.precio_transferencia ?? ""}
-                  placeholder="Vacío = se calcula con el % de Cobros"
-                  className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 placeholder-neutral-600 focus:border-red-600 focus:outline-none"
-                />
-                <p className="mt-1 text-xs text-neutral-500">
-                  Si lo cargás, este es el precio pagando por transferencia o efectivo. Si lo dejás vacío, se usa
-                  el descuento general que pusiste en Cobros.
-                </p>
-              </div>
-            )}
+            <PrecioProducto
+              config={configPagos}
+              claseCampo="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
+              categoria={<CategorySelect categories={categories} defaultValue={product.category_id} />}
+              precioInicial={product.price}
+              // Solo si ya se corrió la migración 012 (si no, la columna no existe
+              // y guardar el producto fallaría).
+              precioAManoInicial={
+                "precio_transferencia" in product ? (product.precio_transferencia ?? null) : undefined
+              }
+            />
             <SubmitButton className="mt-1 self-start rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors">
               Guardar detalles
             </SubmitButton>
@@ -242,6 +215,28 @@ export default async function EditarProductoPage({
               badgeClass="bg-neutral-800 text-neutral-400 border-neutral-700"
             />
           </div>
+        </section>
+
+        {/* Borrar */}
+        <section className="rounded-lg border border-neutral-800 bg-neutral-900 p-6">
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-widest text-neutral-400">
+            Borrar prenda
+          </h2>
+          {pedidos === 0 ? (
+            <>
+              <p className="mb-4 text-xs text-neutral-500">
+                Para sacarla de la tienda por un tiempo alcanza con ocultarla (botón de arriba). Borrar es
+                para lo que se cargó de más o repetido.
+              </p>
+              <BorrarProducto id={product.id} nombre={product.name} />
+            </>
+          ) : (
+            <p className="text-xs text-neutral-500">
+              {pedidos === null
+                ? "No se pudo revisar si tiene pedidos, así que por ahora no se puede borrar. Probá recargando la página."
+                : `Tiene ${pedidos === 1 ? "1 pedido" : `${pedidos} pedidos`}, así que no se puede borrar: el pedido tiene que poder mostrar qué se vendió. Si no la vendés más, ocultala; si querés usarla para otra prenda, cambiale el nombre y las fotos.`}
+            </p>
+          )}
         </section>
       </div>
     </div>

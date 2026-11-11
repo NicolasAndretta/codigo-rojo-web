@@ -3,16 +3,18 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createProduct } from "@/lib/admin/actions";
 import CategorySelect from "@/components/admin/CategorySelect";
+import PrecioProducto from "@/components/admin/PrecioProducto";
+import { leerConfigPagos } from "@/lib/pagos/config";
 import type { Category } from "@/lib/types/database";
 
 export const metadata = { title: "Nuevo producto | Admin" };
 
 export default async function NuevoProductoPage() {
   const supabase = await createClient();
-  const { data: rawCategories } = await supabase
-    .from("categories")
-    .select("*")
-    .order("display_order");
+  const [{ data: rawCategories }, configPagos] = await Promise.all([
+    supabase.from("categories").select("*").order("display_order"),
+    leerConfigPagos(supabase),
+  ]);
   const categories = (rawCategories ?? []) as Category[];
 
   return (
@@ -49,28 +51,11 @@ export default async function NuevoProductoPage() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-              Precio (ARS)
-            </label>
-            <input
-              name="price"
-              type="number"
-              min="0"
-              step="1"
-              required
-              className="w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
-              Categoría
-            </label>
-            <CategorySelect categories={categories} />
-          </div>
-        </div>
+        <PrecioProducto
+          config={configPagos}
+          claseCampo="w-full rounded border border-neutral-700 bg-neutral-900 px-3 py-2.5 text-sm text-neutral-100 focus:border-red-600 focus:outline-none"
+          categoria={<CategorySelect categories={categories} />}
+        />
 
         <p className="text-xs text-neutral-500">
           Se crea oculto. Después cargás stock por talle y fotos, y lo activás.

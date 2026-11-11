@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductSize, OrderStatus } from "@/lib/types/database";
 import { cancelarPedidoReservado, confirmarTransferencia } from "@/lib/admin/cobros";
+import { pedidosDeProducto } from "@/lib/admin/productos";
 
 const ALL_SIZES: ProductSize[] = ["XS", "S", "M", "L", "XL", "XXL"];
 const ORDER_STATUSES: OrderStatus[] = [
@@ -302,6 +303,76 @@ export async function toggleProductActive(id: number, next: boolean) {
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/admin/productos");
   revalidatePath("/catalogo");
+}
+
+export type ResultadoBorrar = { ok: true } | { ok: false; motivo: string };
+
+const MOTIVO_CON_PEDIDOS =
+  "Esta prenda ya tiene pedidos, así que no se puede borrar: el pedido tiene que poder mostrar qué se vendió. Ocultala, o cambiale el nombre y las fotos para usarla con otra prenda.";
+
+/**
+ * Borra una prenda que nunca se vendió. Sus talles (product_variants) y sus
+ * descuentos se van solos (on delete cascade); las fotos se borran del storage.
+ *
+ * Una con pedidos NO se borra: order_items la referencia con on delete
+ * restrict. Para ese caso está "ocultar".
+ *
+ * Devuelve el resultado en vez de lanzar: el motivo es para Agustina, y el
+ * mensaje de un error lanzado desde una action no llega al navegador en
+ * producción.
+ */
+export async function borrarProducto(id: number): Promise<ResultadoBorrar> {
+  const supabase = await createClient();
+
+  const pedidos = await pedidosDeProducto(id);
+  if (pedidos === null) {
+    return { ok: false, motivo: "No se pudo revisar si la prenda tiene pedidos. Probá de nuevo." };
+  }
+  if (pedidos > 0) return { ok: false, motivo: MOTIVO_CON_PEDIDOS };
+
+  const { data: producto, error: leerError } = await supabase
+    .from("products")
+    .select("images")
+    .eq("id", id)
+    .maybeSingle<{ images: string[] | null }>();
+  if (leerError) {
+    console.error(`[admin] No se pudo leer el producto ${id} — ${leerError.message}`);
+    return { ok: false, motivo: "No se pudo leer la prenda. Probá de nuevo." };
+  }
+  if (!producto) return { ok: false, motivo: "Esa prenda ya no existe." };
+
+  const { data: borrados, error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    // 23503: la compraron entre el chequeo de arriba y este borrado.
+    if (error.code === "23503") return { ok: false, motivo: MOTIVO_CON_PEDIDOS };
+    console.error(`[admin] No se pudo borrar el producto ${id} — ${error.message}`);
+    return { ok: false, motivo: "No se pudo borrar la prenda. Probá de nuevo." };
+  }
+  // Sin error y sin filas: los permisos (RLS) no la dejaron borrar.
+  if (!borrados?.length) {
+    return { ok: false, motivo: "No se pudo borrar la prenda: tu cuenta no tiene permiso." };
+  }
+
+  // Las fotos, al final y sin frenar nada: la prenda ya no existe, y una foto
+  // que quede huérfana en el storage no se ve en ningún lado.
+  const rutas = (producto.images ?? [])
+    .map((url) => (url ? storagePathFromUrl(url) : null))
+    .filter((p): p is string => Boolean(p));
+  if (rutas.length) {
+    const { error: fotosError } = await supabase.storage.from("product-images").remove(rutas);
+    if (fotosError) {
+      console.error(`[admin] Prenda ${id} borrada, pero no sus fotos — ${fotosError.message}`);
+    }
+  }
+
+  revalidatePath("/admin/productos");
+  revalidatePath("/catalogo");
+  revalidatePath(`/producto/${id}`);
+  return { ok: true };
 }
 
 // ---------- Categorías ----------
