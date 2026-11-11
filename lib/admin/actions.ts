@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ProductSize, OrderStatus } from "@/lib/types/database";
 import { cancelarPedidoReservado, confirmarTransferencia } from "@/lib/admin/cobros";
 import { pedidosDeProducto } from "@/lib/admin/productos";
+import { fallo, falloDeBase } from "@/lib/admin/resultado";
 
 const ALL_SIZES: ProductSize[] = ["XS", "S", "M", "L", "XL", "XXL"];
 const ORDER_STATUSES: OrderStatus[] = [
@@ -17,25 +18,13 @@ const ORDER_STATUSES: OrderStatus[] = [
   "cancelled",
 ];
 
-/**
- * Corta la ejecución si Supabase devolvió error.
- *
- * POR QUÉ EXISTE: hasta el 29/09/2026 estas actions ignoraban el `error` de
- * cada escritura. Como `SavingForm` muestra el toast verde cuando la action NO
- * lanza, el panel decía "Guardado" aunque no se hubiera guardado nada. Ya pasó
- * de verdad: lo documenta la migración 007, donde cambiar el estado de una
- * orden fallaba en silencio por un permiso faltante. Ahí se arregló el permiso,
- * pero no el patrón — así que el siguiente permiso faltante o constraint
- * violado volvía a mentir igual.
- *
- * El mensaje que se lanza es el que ve Agustina, así que va en criollo. La
- * causa real va al log del servidor, que es donde sirve.
- */
-function lanzarSi(error: { message: string } | null, mensaje: string): void {
-  if (!error) return;
-  console.error(`[admin] ${mensaje} — ${error.message}`);
-  throw new Error(mensaje);
-}
+// Los problemas se DEVUELVEN (`fallo` / `falloDeBase`), no se lanzan: en
+// producción el mensaje de un error lanzado no llega al navegador. Ver
+// lib/admin/resultado.ts.
+//
+// Antes del 29/09/2026 estas actions ignoraban el `error` de cada escritura, y
+// el panel decía "Guardado" aunque no se hubiera guardado nada (migración 007).
+// Por eso cada escritura se revisa y, si falla, se corta con un motivo.
 
 // ---------- Productos ----------
 
@@ -49,7 +38,7 @@ export async function createProduct(formData: FormData) {
   const categoryId = categoryRaw ? Number(categoryRaw) : null;
 
   if (!name || price <= 0) {
-    throw new Error("Nombre y precio (mayor a 0) son obligatorios");
+    return fallo("Nombre y precio (mayor a 0) son obligatorios");
   }
 
   const { data: product, error } = await supabase
@@ -65,14 +54,14 @@ export async function createProduct(formData: FormData) {
     .single<{ id: number }>();
 
   if (error || !product) {
-    throw new Error("No se pudo crear el producto");
+    return fallo("No se pudo crear el producto");
   }
 
   // Crear las variantes (talles) con stock 0 para gestionarlas en la edición
   const { error: variantesError } = await supabase
     .from("product_variants")
     .insert(ALL_SIZES.map((size) => ({ product_id: product.id, size, stock: 0 })));
-  lanzarSi(variantesError, "El producto se creó pero no se pudieron crear los talles");
+  if (variantesError) return falloDeBase(variantesError, "El producto se creó pero no se pudieron crear los talles");
 
   revalidatePath("/admin/productos");
   redirect(`/admin/productos/${product.id}`);
@@ -88,7 +77,7 @@ export async function updateProduct(id: number, formData: FormData) {
   const categoryId = categoryRaw ? Number(categoryRaw) : null;
 
   if (!name || price <= 0) {
-    throw new Error("Nombre y precio (mayor a 0) son obligatorios");
+    return fallo("Nombre y precio (mayor a 0) son obligatorios");
   }
 
   // Precio por transferencia a mano (migración 012). El campo solo aparece en
@@ -98,10 +87,10 @@ export async function updateProduct(id: number, formData: FormData) {
     const crudo = String(formData.get("precio_transferencia") ?? "").trim();
     const valor = crudo === "" ? null : Number(crudo);
     if (valor !== null && (!Number.isFinite(valor) || valor <= 0)) {
-      throw new Error("El precio por transferencia tiene que ser mayor a 0 (o dejalo vacío)");
+      return fallo("El precio por transferencia tiene que ser mayor a 0 (o dejalo vacío)");
     }
     if (valor !== null && valor > price) {
-      throw new Error("El precio por transferencia no puede ser más caro que el precio normal");
+      return fallo("El precio por transferencia no puede ser más caro que el precio normal");
     }
     precioTransferencia = { precio_transferencia: valor };
   }
@@ -116,7 +105,7 @@ export async function updateProduct(id: number, formData: FormData) {
       ...precioTransferencia,
     })
     .eq("id", id);
-  lanzarSi(error, "No se pudieron guardar los datos del producto");
+  if (error) return falloDeBase(error, "No se pudieron guardar los datos del producto");
 
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/admin/productos");
@@ -131,7 +120,7 @@ export async function setProductStock(id: number, formData: FormData) {
     .select("id")
     .eq("product_id", id)
     .returns<{ id: number }[]>();
-  lanzarSi(leerError, "No se pudieron leer los talles del producto");
+  if (leerError) return falloDeBase(leerError, "No se pudieron leer los talles del producto");
 
   for (const v of variants ?? []) {
     const raw = formData.get(`stock_${v.id}`);
@@ -141,7 +130,7 @@ export async function setProductStock(id: number, formData: FormData) {
         .from("product_variants")
         .update({ stock })
         .eq("id", v.id);
-      lanzarSi(error, "No se pudo guardar el stock");
+      if (error) return falloDeBase(error, "No se pudo guardar el stock");
     }
   }
 
@@ -187,21 +176,21 @@ export async function uploadProductImage(id: number, slot: number, formData: For
   // Antes esto hacía `return` a secas: la action terminaba bien, SavingForm
   // mostraba el toast verde, y no se había subido nada.
   if (!file || file.size === 0) {
-    throw new Error("No llegó ninguna foto. Probá elegirla de nuevo.");
+    return fallo("No llegó ninguna foto. Probá elegirla de nuevo.");
   }
   if (slot < 0 || slot >= MAX_PRODUCT_IMAGES) {
-    throw new Error("Esa posición de foto no existe");
+    return fallo("Esa posición de foto no existe");
   }
 
   const ext = FORMATOS_ACEPTADOS[file.type];
   if (!ext) {
-    throw new Error(
+    return fallo(
       "Ese formato de imagen no se puede publicar. Sacá la foto de nuevo o elegí un JPG o PNG."
     );
   }
   if (file.size > MAX_FOTO_BYTES) {
     const mb = Math.round(file.size / 1024 / 1024);
-    throw new Error(`La foto pesa ${mb} MB y es demasiado. Probá con otra.`);
+    return fallo(`La foto pesa ${mb} MB y es demasiado. Probá con otra.`);
   }
 
   const supabase = await createClient();
@@ -214,7 +203,7 @@ export async function uploadProductImage(id: number, slot: number, formData: For
 
   if (upErr) {
     console.error(`[admin] No se pudo subir la foto — ${upErr.message}`);
-    throw new Error("No se pudo subir la imagen");
+    return fallo("No se pudo subir la imagen");
   }
 
   const { data: pub } = supabase.storage.from("product-images").getPublicUrl(path);
@@ -224,7 +213,7 @@ export async function uploadProductImage(id: number, slot: number, formData: For
     .select("images")
     .eq("id", id)
     .single<{ images: string[] }>();
-  lanzarSi(leerError, "La foto se subió pero no se pudo leer el producto");
+  if (leerError) return falloDeBase(leerError, "La foto se subió pero no se pudo leer el producto");
 
   const images = [...(product?.images ?? [])];
   // Padear huecos previos con "" para no escribir NULLs en el text[]:
@@ -239,7 +228,7 @@ export async function uploadProductImage(id: number, slot: number, formData: For
     .from("products")
     .update({ images })
     .eq("id", id);
-  lanzarSi(guardarError, "La foto se subió pero no se pudo asociar al producto");
+  if (guardarError) return falloDeBase(guardarError, "La foto se subió pero no se pudo asociar al producto");
 
   // Si reemplazamos una foto, borramos la anterior del storage (best-effort)
   if (previousUrl) {
@@ -259,7 +248,7 @@ export async function removeProductImage(id: number, slot: number) {
     .select("images")
     .eq("id", id)
     .single<{ images: string[] }>();
-  lanzarSi(leerError, "No se pudo leer el producto");
+  if (leerError) return falloDeBase(leerError, "No se pudo leer el producto");
 
   const images = [...(product?.images ?? [])];
   const url = images[slot];
@@ -267,7 +256,7 @@ export async function removeProductImage(id: number, slot: number) {
 
   images.splice(slot, 1); // al quitar la prenda, la foto con modelo pasa a principal
   const { error } = await supabase.from("products").update({ images }).eq("id", id);
-  lanzarSi(error, "No se pudo eliminar la foto");
+  if (error) return falloDeBase(error, "No se pudo eliminar la foto");
 
   const path = storagePathFromUrl(url);
   if (path) await supabase.storage.from("product-images").remove([path]);
@@ -286,11 +275,11 @@ export async function toggleProductActive(id: number, next: boolean) {
       .select("images")
       .eq("id", id)
       .single<{ images: string[] }>();
-    lanzarSi(leerError, "No se pudo leer el producto");
+    if (leerError) return falloDeBase(leerError, "No se pudo leer el producto");
     // La UI ya lo impide; esto es defensa extra. Antes hacía `return` y el
     // panel decía "Guardado" sin haber publicado nada.
     if (!product?.images?.[0]) {
-      throw new Error("Para publicar el producto falta la foto de la prenda");
+      return fallo("Para publicar el producto falta la foto de la prenda");
     }
   }
 
@@ -298,7 +287,7 @@ export async function toggleProductActive(id: number, next: boolean) {
     .from("products")
     .update({ is_active: next })
     .eq("id", id);
-  lanzarSi(error, next ? "No se pudo publicar el producto" : "No se pudo ocultar el producto");
+  if (error) return falloDeBase(error, next ? "No se pudo publicar el producto" : "No se pudo ocultar el producto");
 
   revalidatePath(`/admin/productos/${id}`);
   revalidatePath("/admin/productos");
@@ -395,7 +384,7 @@ export async function createCategory(formData: FormData) {
   const parentId = parentRaw ? Number(parentRaw) : null;
 
   if (!name) {
-    throw new Error("El nombre es obligatorio");
+    return fallo("El nombre es obligatorio");
   }
 
   // Slug único: si choca, le agregamos un sufijo numérico.
@@ -429,7 +418,7 @@ export async function createCategory(formData: FormData) {
     parent_id: parentId,
     display_order: nextOrder,
   });
-  lanzarSi(error, "No se pudo crear la categoría");
+  if (error) return falloDeBase(error, "No se pudo crear la categoría");
 
   revalidatePath("/admin/categorias");
   revalidatePath("/catalogo");
@@ -439,7 +428,7 @@ export async function deleteCategory(id: number) {
   const supabase = await createClient();
   // ON DELETE CASCADE borra subcategorías; los productos quedan sin categoría.
   const { error } = await supabase.from("categories").delete().eq("id", id);
-  lanzarSi(error, "No se pudo eliminar la categoría");
+  if (error) return falloDeBase(error, "No se pudo eliminar la categoría");
 
   revalidatePath("/admin/categorias");
   revalidatePath("/catalogo");
@@ -452,7 +441,7 @@ export async function updateOrderStatus(id: number, formData: FormData) {
   const status = String(formData.get("status") ?? "") as OrderStatus;
 
   if (!ORDER_STATUSES.includes(status)) {
-    throw new Error("Estado inválido");
+    return fallo("Estado inválido");
   }
 
   // Pedidos por transferencia (migración 012) con las prendas reservadas: si
@@ -463,19 +452,17 @@ export async function updateOrderStatus(id: number, formData: FormData) {
   const { data: actual } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
   if (actual?.status === "pending" && actual.medio_pago && actual.medio_pago !== "mercadopago") {
     if (status === "cancelled" && actual.stock_reservado) {
-      await cancelarPedidoReservado(id);
-      return;
+      return cancelarPedidoReservado(id);
     }
     if (status === "paid") {
-      await confirmarTransferencia(id);
-      return;
+      return confirmarTransferencia(id);
     }
   }
 
   // Este es EL caso que documenta la migración 007: fallaba en silencio por un
   // permiso faltante y el panel decía "actualizado" igual.
   const { error } = await supabase.from("orders").update({ status }).eq("id", id);
-  lanzarSi(error, "No se pudo cambiar el estado del pedido");
+  if (error) return falloDeBase(error, "No se pudo cambiar el estado del pedido");
 
   revalidatePath(`/admin/ordenes/${id}`);
   revalidatePath("/admin/ordenes");

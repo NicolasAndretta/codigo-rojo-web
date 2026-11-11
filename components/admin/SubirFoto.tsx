@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload } from "lucide-react";
 import { ImagenInvalida, prepararFoto } from "@/lib/image-client";
 import { useToast } from "@/components/ui/Toast";
+import { esFallo, textoDeError } from "@/lib/admin/resultado";
 
 /**
  * Subida de una foto de producto desde el panel.
@@ -34,7 +35,7 @@ export default function SubirFoto({
   titulo,
 }: {
   /** Server action ya bindeada con (productId, slot). */
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<unknown>;
   /** Para que el mensaje diga cuál de las fotos se subió. */
   titulo: string;
 }) {
@@ -96,7 +97,11 @@ export default function SubirFoto({
           try {
             const fd = new FormData();
             fd.append("image", listo);
-            await action(fd);
+            const resultado = await action(fd);
+            if (esFallo(resultado)) {
+              toast.error(resultado.motivo);
+              return;
+            }
             toast.success(`${titulo} subida`);
             router.refresh();
           } catch (err) {
@@ -109,9 +114,7 @@ export default function SubirFoto({
             ) {
               throw err;
             }
-            toast.error(
-              err instanceof Error ? err.message : "No se pudo subir la foto. Probá de nuevo."
-            );
+            toast.error(textoDeError(err, "No se pudo subir la foto. Probá de nuevo."));
           } finally {
             setEstado("quieto");
           }

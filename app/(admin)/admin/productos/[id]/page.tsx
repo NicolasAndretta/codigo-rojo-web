@@ -79,9 +79,12 @@ export default async function EditarProductoPage({
             Subí una foto para activar
           </span>
         ) : (
-          <form action={toggleProductActive.bind(null, product.id, !product.is_active)}>
-            <button
-              type="submit"
+          <SavingForm
+            action={toggleProductActive.bind(null, product.id, !product.is_active)}
+            successMessage={product.is_active ? "Prenda oculta" : "Prenda publicada"}
+          >
+            <SubmitButton
+              pendingLabel="…"
               className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
                 product.is_active
                   ? "border-green-800 bg-green-950/40 text-green-300 hover:bg-green-950/70"
@@ -89,8 +92,8 @@ export default async function EditarProductoPage({
               }`}
             >
               {product.is_active ? "Activo — ocultar" : "Oculto — activar"}
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
         )}
       </div>
 

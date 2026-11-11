@@ -233,8 +233,9 @@ export default async function OrdenDetallePage({
           <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-neutral-400">
             Cambiar estado
           </h2>
-          <form
+          <SavingForm
             action={updateOrderStatus.bind(null, order.id)}
+            successMessage="Estado actualizado"
             className="flex flex-wrap items-center gap-3"
           >
             <select
@@ -248,13 +249,13 @@ export default async function OrdenDetallePage({
                 </option>
               ))}
             </select>
-            <button
-              type="submit"
+            <SubmitButton
+              pendingLabel="Actualizando…"
               className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors"
             >
               Actualizar
-            </button>
-          </form>
+            </SubmitButton>
+          </SavingForm>
         </section>
       </div>
     </div>

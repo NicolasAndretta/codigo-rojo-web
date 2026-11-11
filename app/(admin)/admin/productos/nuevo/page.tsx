@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createProduct } from "@/lib/admin/actions";
 import CategorySelect from "@/components/admin/CategorySelect";
+import SavingForm, { SubmitButton } from "@/components/ui/SavingForm";
 import PrecioProducto from "@/components/admin/PrecioProducto";
 import { leerConfigPagos } from "@/lib/pagos/config";
 import type { Category } from "@/lib/types/database";
@@ -28,7 +29,7 @@ export default async function NuevoProductoPage() {
 
       <h1 className="mb-6 font-display text-4xl tracking-widest">NUEVO PRODUCTO</h1>
 
-      <form action={createProduct} className="flex flex-col gap-4">
+      <SavingForm action={createProduct} successMessage="Producto creado" className="flex flex-col gap-4">
         <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-neutral-500">
             Nombre
@@ -61,13 +62,13 @@ export default async function NuevoProductoPage() {
           Se crea oculto. Después cargás stock por talle y fotos, y lo activás.
         </p>
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingLabel="Creando…"
           className="mt-2 rounded-lg bg-red-600 px-6 py-3 text-sm font-bold tracking-wider uppercase text-white hover:bg-red-700 transition-colors"
         >
           Crear producto
-        </button>
-      </form>
+        </SubmitButton>
+      </SavingForm>
     </div>
   );
 }

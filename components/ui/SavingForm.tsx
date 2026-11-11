@@ -3,10 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { useToast } from "./Toast";
+import { esFallo, textoDeError } from "@/lib/admin/resultado";
 
 type Props = {
-  /** Server action ya bindeada (recibe solo el FormData). */
-  action: (formData: FormData) => Promise<void>;
+  /**
+   * Server action ya bindeada (recibe solo el FormData). Si algo no se pudo
+   * hacer, devuelve `fallo(motivo)` (lib/admin/resultado.ts) y se muestra.
+   */
+  action: (formData: FormData) => Promise<unknown>;
   /** Mensaje del toast al guardar OK. */
   successMessage: string;
   /** Si el form se resetea solo al terminar (útil para "crear"). */
@@ -36,7 +40,11 @@ export default function SavingForm({
       className={className}
       action={async (formData) => {
         try {
-          await action(formData);
+          const resultado = await action(formData);
+          if (esFallo(resultado)) {
+            toast.error(resultado.motivo);
+            return;
+          }
           toast.success(successMessage);
           router.refresh(); // trae los datos frescos del server al toque
         } catch (err) {
@@ -49,9 +57,7 @@ export default function SavingForm({
           ) {
             throw err;
           }
-          toast.error(
-            err instanceof Error ? err.message : "No se pudo guardar. Probá de nuevo."
-          );
+          toast.error(textoDeError(err));
         }
       }}
       {...(resetOnSuccess
