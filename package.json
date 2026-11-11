@@ -28,5 +28,11 @@
     "playwright": "^1.61.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.7"
+    },
+    "zod": "^4.6.7"
   }
 }
