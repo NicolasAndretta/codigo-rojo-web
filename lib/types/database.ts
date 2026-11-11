@@ -370,6 +370,10 @@ export type Database = {
           sena_porcentaje: number;
           horas_para_pagar: number;
           actualizada_el: string;
+          /** Migración 014. Opcionales: sin la 014 no vienen. */
+          anuncio_activo?: boolean;
+          anuncio_mensajes?: string[];
+          anuncio_descuento?: boolean;
         };
         Insert: {
           id?: number;
@@ -381,6 +385,9 @@ export type Database = {
           sena_porcentaje?: number;
           horas_para_pagar?: number;
           actualizada_el?: string;
+          anuncio_activo?: boolean;
+          anuncio_mensajes?: string[];
+          anuncio_descuento?: boolean;
         };
         Update: {
           transferencia_activa?: boolean;
@@ -391,6 +398,9 @@ export type Database = {
           sena_porcentaje?: number;
           horas_para_pagar?: number;
           actualizada_el?: string;
+          anuncio_activo?: boolean;
+          anuncio_mensajes?: string[];
+          anuncio_descuento?: boolean;
         };
         Relationships: [];
       };

@@ -82,9 +82,28 @@ export function conviene(precioMP: number, precioAMano: number | null | undefine
   return hayPagoSinMP(c) && precioTransferencia(precioMP, precioAMano, c) < precioMP;
 }
 
+/** "con transferencia o efectivo", "con transferencia" o "en efectivo". */
+function medios(c: ConfigPagos): string {
+  return c.transferenciaActiva && c.efectivoActivo
+    ? "con transferencia o efectivo"
+    : c.efectivoActivo
+      ? "en efectivo"
+      : "con transferencia";
+}
+
+/** 10 → "10", 7.5 → "7,5". */
+function porcentaje(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",");
+}
+
 /**
  * Lo que muestra la tienda debajo del precio: el de transferencia y su
- * aclaración, o null si no conviene (o no está habilitado).
+ * aclaración ("10% OFF con transferencia o efectivo"), o null si no conviene
+ * (o no está habilitado).
+ *
+ * El % es el de Cobros. Si la prenda tiene un precio por transferencia cargado
+ * a mano, se calcula el real y se redondea PARA ABAJO: nunca se anuncia más
+ * descuento del que hay.
  */
 export function etiquetaTransferencia(
   precioMP: number,
@@ -92,12 +111,20 @@ export function etiquetaTransferencia(
   c: ConfigPagos
 ): { precio: number; etiqueta: string } | null {
   if (!conviene(precioMP, precioAMano, c)) return null;
-  const medios = c.transferenciaActiva && c.efectivoActivo
-    ? "con transferencia o efectivo"
-    : c.efectivoActivo
-      ? "pagando en efectivo"
-      : "con transferencia";
-  return { precio: precioTransferencia(precioMP, precioAMano, c), etiqueta: medios };
+  const precio = precioTransferencia(precioMP, precioAMano, c);
+  const aMano = precioAMano != null && Number(precioAMano) > 0;
+  const pct = aMano ? Math.floor((1 - precio / precioMP) * 100) : c.descuento;
+  const etiqueta = pct > 0 ? `${porcentaje(pct)}% OFF ${medios(c)}` : medios(c);
+  return { precio, etiqueta };
+}
+
+/**
+ * El mensaje del descuento para la franja de arriba de la tienda
+ * ("10% OFF pagando con transferencia o efectivo"), o null si no hay.
+ */
+export function textoDescuento(c: ConfigPagos): string | null {
+  if (!hayPagoSinMP(c) || c.descuento <= 0) return null;
+  return `${porcentaje(c.descuento)}% OFF pagando ${medios(c)}`;
 }
 
 /** La seña del efectivo: lo que se transfiere ahora. El resto, al retirar. */

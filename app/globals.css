@@ -89,3 +89,28 @@ body::before {
 .animate-fade-up {
   animation: fade-up 0.5s ease both;
 }
+
+/* La franja de anuncios (components/AnuncioBar.tsx): la pista tiene dos copias
+   iguales y se corre la mitad, así el loop no tiene salto. La duración la pone
+   el componente según el largo de los mensajes. */
+@keyframes anuncio-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.anuncio-pista {
+  display: flex;
+  width: max-content;
+  animation: anuncio-marquee 30s linear infinite;
+}
+.anuncio-franja:hover .anuncio-pista {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anuncio-pista {
+    animation: none;
+  }
+}

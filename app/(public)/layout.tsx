@@ -1,4 +1,7 @@
 import Navbar from "@/components/Navbar";
+import AnuncioBar from "@/components/AnuncioBar";
+import { mensajesAnuncio } from "@/lib/tienda/anuncio";
+import type { TiendaConfig } from "@/lib/types/database";
 import WhatsAppFloat from "@/components/WhatsAppFloat";
 import { CartProvider } from "@/lib/context/CartContext";
 import { createClient } from "@/lib/supabase/server";
@@ -26,8 +29,18 @@ export default async function PublicLayout({
     };
   }
 
+  // La franja de anuncios (migración 014). Si la tabla o las columnas no
+  // están, no hay franja: nunca rompe la tienda.
+  const { data: filaConfig } = await supabase
+    .from("tienda_config")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle<TiendaConfig>();
+  const anuncio = mensajesAnuncio(filaConfig ?? null);
+
   return (
     <CartProvider>
+      <AnuncioBar mensajes={anuncio} />
       <Navbar user={navUser} />
       <main className="flex-1">{children}</main>
       <WhatsAppFloat />

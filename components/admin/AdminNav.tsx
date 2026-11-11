@@ -12,6 +12,7 @@ import {
   Tag,
   CreditCard,
   Undo2,
+  Megaphone,
   Menu,
   X,
   type LucideIcon,
@@ -31,6 +32,7 @@ const LINKS: NavLink[] = [
   { href: "/admin/descuentos", label: "Descuentos", icon: Tag },
   { href: "/admin/ordenes", label: "Órdenes", icon: ClipboardList },
   { href: "/admin/cobros", label: "Cobros", icon: CreditCard },
+  { href: "/admin/anuncio", label: "Anuncio", icon: Megaphone },
   { href: "/admin/arrepentimientos", label: "Arrepentimientos", icon: Undo2 },
   { href: "/catalogo", label: "Ver tienda", icon: Store, muted: true },
 ];
@@ -64,8 +66,9 @@ export default function AdminNav() {
 
   return (
     <>
-      {/* Desktop */}
-      <nav className="hidden items-center gap-5 text-sm font-medium md:flex">
+      {/* Desktop. Desde lg y no md: con 8 secciones, en una tablet (768-1023)
+          el menú se montaba sobre el logo y se cortaba. Ahí va la hamburguesa. */}
+      <nav className="hidden items-center gap-5 text-sm font-medium lg:flex">
         {LINKS.map(({ href, label, icon: Icon, muted }) => {
           const active = isActive(pathname, href);
           return (
@@ -86,20 +89,20 @@ export default function AdminNav() {
         })}
       </nav>
 
-      {/* Botón hamburguesa (solo mobile) */}
+      {/* Botón hamburguesa (celu y tablet) */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir menú"
         aria-expanded={open}
-        className="-mr-1 rounded-lg p-2 text-neutral-200 transition-colors hover:bg-neutral-900 md:hidden"
+        className="-mr-1 rounded-lg p-2 text-neutral-200 transition-colors hover:bg-neutral-900 lg:hidden"
       >
         <Menu size={24} />
       </button>
 
-      {/* Overlay + Drawer (solo mobile) */}
+      {/* Overlay + Drawer (celu y tablet) */}
       <div
-        className={`fixed inset-0 z-50 md:hidden ${
+        className={`fixed inset-0 z-50 lg:hidden ${
           open ? "" : "pointer-events-none"
         }`}
         aria-hidden={!open}
