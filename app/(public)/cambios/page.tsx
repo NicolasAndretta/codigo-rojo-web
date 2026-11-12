@@ -41,7 +41,8 @@ export default function CambiosPage() {
 
       <Seccion titulo="QUÉ SE PUEDE CAMBIAR">
         <p>
-          Podés cambiar por <strong className={fuerte}>otro talle</strong> o por{" "}
+          Se puede cambiar cualquier prenda de la tienda, también las que compraste con descuento. Podés
+          cambiarla por <strong className={fuerte}>otro talle</strong> o por{" "}
           <strong className={fuerte}>otra prenda</strong>. Si la nueva cuesta más, abonás la diferencia; si
           cuesta menos, te devolvemos la diferencia.
         </p>
@@ -53,8 +54,8 @@ export default function CambiosPage() {
           <li>Con todas sus etiquetas.</li>
           <li>En su bolsa original.</li>
           <li>
-            Las <strong className={fuerte}>prendas blancas</strong> tienen que estar en perfecto estado. Las
-            revisamos cuando nos llegan, antes de confirmar el cambio.
+            Las <strong className={fuerte}>prendas blancas</strong> solo se cambian si están en perfecto
+            estado. Las revisamos cuando nos llegan, antes de confirmar el cambio.
           </li>
         </ul>
       </Seccion>
