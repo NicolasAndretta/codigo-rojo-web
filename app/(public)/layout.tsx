@@ -63,7 +63,13 @@ export default async function PublicLayout({
           </a>
         </p>
         {/* Disposición 954/2025: tiene que estar a la vista en toda la tienda. */}
-        <p className="mt-3 text-sm">
+        <p className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
+          <a
+            href="/cambios"
+            className="text-neutral-400 underline underline-offset-4 hover:text-red-500 transition-colors"
+          >
+            Cambios y devoluciones
+          </a>
           <a
             href="/arrepentimiento"
             className="text-neutral-400 underline underline-offset-4 hover:text-red-500 transition-colors"
