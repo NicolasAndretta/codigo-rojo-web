@@ -125,6 +125,12 @@ export default function CambiosPage() {
           reintegremos el dinero, usá el botón de arrepentimiento: tenés 10 días corridos desde que recibís
           el pedido, sin dar explicaciones.
         </p>
+        {/* Arrepentimiento (Ley 24.240 art. 34): el envío de vuelta es a cargo de
+            la tienda, y las condiciones propias de los cambios no se le aplican. */}
+        <p className="mt-3 text-sm leading-relaxed text-neutral-400">
+          En ese caso <strong className={fuerte}>el envío de vuelta lo pagamos nosotros</strong>, y la regla
+          de las prendas blancas no corre.
+        </p>
         <Link
           href="/arrepentimiento"
           className="mt-4 inline-block text-sm text-neutral-200 underline underline-offset-4 transition-colors hover:text-red-500"

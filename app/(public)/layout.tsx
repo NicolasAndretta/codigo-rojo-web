@@ -44,7 +44,8 @@ export default async function PublicLayout({
       <Navbar user={navUser} />
       <main className="flex-1">{children}</main>
       <WhatsAppFloat />
-      <footer className="border-t border-neutral-800 py-10 text-center">
+      {/* pb-24: el botón flotante de WhatsApp tapaba los links del pie en el celu. */}
+      <footer className="border-t border-neutral-800 px-4 pt-10 pb-24 text-center">
         <p className="font-display text-2xl tracking-[0.3em] text-neutral-200">
           CÓDIGO <span className="text-red-600">ROJO</span>
         </p>

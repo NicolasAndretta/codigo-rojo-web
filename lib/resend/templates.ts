@@ -130,8 +130,30 @@ export function orderConfirmationHtml(data: OrderEmailData): string {
         : ""
     }
     <p style="color:${MUTED};font-size:13px;margin-top:20px;">Te vamos a escribir por WhatsApp para coordinar la entrega. ¡Gracias por elegir Código Rojo!</p>
+    ${bloqueDerechos()}
   `;
   return shell("¡Pedido confirmado!", inner);
+}
+
+/**
+ * El derecho de arrepentimiento, destacado en el mail que confirma la compra:
+ * la Ley 24.240 (art. 34) y el Código Civil y Comercial (art. 1111) piden
+ * informarlo en los documentos de la venta. De paso, los cambios.
+ */
+function bloqueDerechos(): string {
+  const sitio = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+  const link = (ruta: string, texto: string) =>
+    sitio ? `<a href="${sitio}${ruta}" style="color:${RED};">${texto}</a>` : texto;
+  return `
+    <div style="margin-top:20px;padding:14px 16px;border-left:3px solid ${RED};background:${BG};border-radius:4px;">
+      <p style="color:${TEXT};font-size:13px;margin:0 0 6px;line-height:1.6;">
+        <strong>Tenés 10 días corridos desde que recibís tu pedido para arrepentirte de la compra</strong>,
+        sin dar explicaciones: ${link("/arrepentimiento", "botón de arrepentimiento")}.
+      </p>
+      <p style="color:${MUTED};font-size:13px;margin:0;line-height:1.6;">
+        Si preferís cambiar el talle o la prenda: ${link("/cambios", "cambios y devoluciones")}.
+      </p>
+    </div>`;
 }
 
 function bloqueTransferencia(p: PagoManualEmail): string {
